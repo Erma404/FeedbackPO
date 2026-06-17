@@ -1102,88 +1102,82 @@ function PageAnalyser({ backlog, onSetBacklog }) {
 
       {!hasBacklog ? (
         <div style={{ flex: 1, overflow: "auto" }}>
-          {/* Canva-style gradient hero */}
+          {/* Full hero with greeting + textarea */}
           <div style={{
             background: T.gradientHero,
-            padding: "32px 28px 28px",
-            borderBottom: `1px solid ${T.border}`,
+            padding: "40px 28px 36px",
             position: "relative",
             overflow: "hidden",
           }}>
             {/* Decorative orbs */}
-            <div style={{ position: "absolute", width: 220, height: 220, borderRadius: "50%", background: "rgba(92,95,212,0.07)", top: -60, right: 80, pointerEvents: "none", animation: "floatOrb 6s ease-in-out infinite" }} />
-            <div style={{ position: "absolute", width: 140, height: 140, borderRadius: "50%", background: "rgba(139,92,246,0.08)", bottom: -40, right: 20, pointerEvents: "none", animation: "floatOrb 8s ease-in-out infinite 1s" }} />
-            <div style={{ position: "relative", zIndex: 1, maxWidth: 700, margin: "0 auto" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <img src={logoSrc} alt="FeedbackPO" style={{ width: 44, height: 44, borderRadius: 13, objectFit: "cover", boxShadow: "0 4px 14px rgba(92,95,212,.3)", animation: "fadeIn 0.4s ease", flexShrink: 0 }} />
-                <div>
-                  <h2 style={{ fontSize: 20, fontWeight: 800, color: T.text, margin: 0, letterSpacing: "-0.03em", animation: "fadeInUp 0.45s ease both" }}>
-                    Bonjour, Ernestine
-                  </h2>
-                  <p style={{ fontSize: 12.5, color: T.textMuted, margin: 0, fontWeight: 400, animation: "fadeInUp 0.5s ease 0.05s both" }}>
-                    Colle un feedback brut — Claude le transforme en backlog structuré en quelques secondes.
-                  </p>
+            <div style={{ position: "absolute", width: 260, height: 260, borderRadius: "50%", background: "rgba(92,95,212,0.06)", top: -80, right: 60, pointerEvents: "none", animation: "floatOrb 6s ease-in-out infinite" }} />
+            <div style={{ position: "absolute", width: 160, height: 160, borderRadius: "50%", background: "rgba(139,92,246,0.07)", bottom: -50, right: 30, pointerEvents: "none", animation: "floatOrb 8s ease-in-out infinite 1.5s" }} />
+            <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto" }}>
+              {/* Big greeting */}
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: T.text, margin: "0 0 6px", letterSpacing: "-0.04em", animation: "fadeInUp 0.4s ease both", lineHeight: 1.2 }}>
+                👋 Hey, Ernestine !
+              </h1>
+              <p style={{ fontSize: 13.5, color: T.textMuted, margin: "0 0 22px", fontWeight: 400, animation: "fadeInUp 0.45s ease 0.05s both", lineHeight: 1.6 }}>
+                Colle un feedback brut ci-dessous — Claude le transforme en backlog structuré en quelques secondes.
+              </p>
+
+              {/* Textarea directly in hero */}
+              <div style={{ animation: "fadeInUp 0.5s ease 0.1s both" }}>
+                <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder={`Ex : "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel…"`}
+                  style={{ width: "100%", minHeight: 130, border: `1.5px solid rgba(92,95,212,0.18)`, borderRadius: T.radius, padding: "14px 16px", fontSize: 13.5, color: "#374151", lineHeight: 1.7, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", backgroundColor: "rgba(255,255,255,0.85)", backdropFilter: "blur(6px)", outline: "none", transition: "border-color 0.15s, box-shadow 0.15s", boxShadow: "0 2px 12px rgba(92,95,212,0.08)" }}
+                  onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = `0 0 0 3px rgba(92,95,212,0.12), 0 2px 12px rgba(92,95,212,0.1)`; e.target.style.backgroundColor = "#fff"; }}
+                  onBlur={e => { e.target.style.borderColor = "rgba(92,95,212,0.18)"; e.target.style.boxShadow = "0 2px 12px rgba(92,95,212,0.08)"; e.target.style.backgroundColor = "rgba(255,255,255,0.85)"; }} />
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4, marginBottom: 14 }}>
+                  <span style={{ fontSize: 11.5, color: charCount < 60 && charCount > 0 ? "#F59E0B" : T.textSubtle }}>{charCount} car.</span>
                 </div>
+
+                {/* Options inline */}
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+                  <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Type de sortie</div>
+                    <PillGroup name="type" value={outputType} onChange={setOutputType} options={[{ v: "auto", label: "Auto-detect", sub: "Recommandé" }, { v: "Epic", label: "Epic" }, { v: "Feature", label: "Feature" }, { v: "User Story", label: "User Story" }, { v: "Bug", label: "Bug" }, { v: "Spike", label: "Spike" }]} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Priorisation</div>
+                    <PillGroup name="fw" value={framework} onChange={setFramework} options={[{ v: "MoSCoW", label: "MoSCoW", sub: "Must/Should/Could" }, { v: "RICE", label: "RICE", sub: "Score composite" }, { v: "Valeur-Effort", label: "Valeur/Effort", sub: "Impact vs effort" }]} />
+                  </div>
+                </div>
+
+                {error && (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.dangerLight, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 14 }}>
+                    <AlertCircle size={14} color={T.danger} style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: T.danger }}>{error}</span>
+                  </div>
+                )}
+
+                <button onClick={handleGenerate} disabled={loading || feedback.trim().length < 10} style={{ width: "100%", padding: "13px 0", border: "none", borderRadius: T.radius, background: loading || feedback.trim().length < 10 ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: loading || feedback.trim().length < 10 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading || feedback.trim().length < 10 ? "none" : T.shadowPrimary, fontFamily: "inherit", letterSpacing: "-0.01em", transition: "opacity 0.15s, transform 0.15s" }}
+                  onMouseEnter={e => { if (!loading && feedback.trim().length >= 10) { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
+                  {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Structuration en cours…</> : <><Sparkles size={16} /> Transformer en backlog</>}
+                </button>
               </div>
-              {/* Quick stats */}
-              <div style={{ display: "flex", gap: 10, marginTop: 14, animation: "fadeInUp 0.5s ease 0.1s both" }}>
+
+              {/* Feature pills */}
+              <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", animation: "fadeInUp 0.55s ease 0.15s both" }}>
                 {[
-                  { icon: Zap,      label: "Génération IA",    color: T.primary,  bg: T.primaryLight },
-                  { icon: Layers,   label: "Epic → US / Bug",  color: "#7C3AED",  bg: "#F5F3FF" },
-                  { icon: Target,   label: "MoSCoW / RICE",    color: "#15803D",  bg: "#F0FDF4" },
-                  { icon: Download, label: "Export Markdown",  color: "#C2410C",  bg: "#FFF4ED" },
+                  { icon: Zap,      label: "Génération IA",    color: T.primary,  bg: "rgba(92,95,212,0.1)" },
+                  { icon: Layers,   label: "Epic → US / Bug",  color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
+                  { icon: Target,   label: "MoSCoW / RICE",    color: "#15803D",  bg: "rgba(21,128,61,0.1)" },
+                  { icon: Download, label: "Export Markdown",  color: "#C2410C",  bg: "rgba(194,65,12,0.1)" },
                 ].map(({ icon: Icon, label, color, bg }) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: bg, borderRadius: 20, padding: "5px 12px", border: `1px solid ${color}22`, cursor: "default" }}>
-                    <Icon size={12} color={color} />
-                    <span style={{ fontSize: 11.5, fontWeight: 600, color }}>{label}</span>
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: bg, borderRadius: 20, padding: "4px 11px", cursor: "default" }}>
+                    <Icon size={11} color={color} />
+                    <span style={{ fontSize: 11, fontWeight: 600, color }}>{label}</span>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
 
-          <div style={{ padding: "20px 28px" }}>
-          <div style={{ maxWidth: 700, margin: "0 auto", animation: "fadeIn 0.2s ease" }}>
-            <div style={{ background: T.card, borderRadius: T.radiusLg, padding: 24, border: `1px solid ${T.border}`, boxShadow: T.shadow, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: T.gradient, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(92,95,212,.25)" }}><Sparkles size={14} color="#fff" /></div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Colle ton feedback brut</span>
-              </div>
-              <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder={`Ex : "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel…"`}
-                style={{ width: "100%", minHeight: 140, border: `1.5px solid ${T.border}`, borderRadius: T.radiusSm, padding: "13px 15px", fontSize: 13.5, color: "#374151", lineHeight: 1.7, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", backgroundColor: "#FAFAFA", outline: "none", transition: "border-color 0.15s, box-shadow 0.15s" }}
-                onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = `0 0 0 3px rgba(92,95,212,0.12)`; }}
-                onBlur={e => { e.target.style.borderColor = T.border; e.target.style.boxShadow = "none"; }} />
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-                <span style={{ fontSize: 11.5, color: charCount < 60 && charCount > 0 ? "#F59E0B" : T.textSubtle }}>{charCount} car.</span>
+              <div style={{ textAlign: "center", marginTop: 14 }}>
+                <button onClick={() => onSetBacklog(MOCK_KANBAN)} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
+                  Voir un exemple avec le cas Kantara →
+                </button>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-              <div style={{ background: T.card, borderRadius: T.radiusLg, padding: "18px 16px", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textSubtle, letterSpacing: ".07em", textTransform: "uppercase", marginBottom: 10 }}>Type de sortie</div>
-                <PillGroup name="type" value={outputType} onChange={setOutputType} options={[{ v: "auto", label: "Auto-detect", sub: "Recommandé" }, { v: "Epic", label: "Epic" }, { v: "Feature", label: "Feature" }, { v: "User Story", label: "User Story" }, { v: "Bug", label: "Bug" }, { v: "Spike", label: "Spike" }]} />
-              </div>
-              <div style={{ background: T.card, borderRadius: T.radiusLg, padding: "18px 16px", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textSubtle, letterSpacing: ".07em", textTransform: "uppercase", marginBottom: 10 }}>Priorisation</div>
-                <PillGroup name="fw" value={framework} onChange={setFramework} options={[{ v: "MoSCoW", label: "MoSCoW", sub: "Must/Should/Could" }, { v: "RICE", label: "RICE", sub: "Score composite" }, { v: "Valeur-Effort", label: "Valeur/Effort", sub: "Impact vs effort" }]} />
-              </div>
-            </div>
-            {error && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.dangerLight, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 14 }}>
-                <AlertCircle size={14} color={T.danger} style={{ flexShrink: 0 }} />
-                <span style={{ fontSize: 13, color: T.danger }}>{error}</span>
-              </div>
-            )}
-            <button onClick={handleGenerate} disabled={loading || feedback.trim().length < 10} style={{ width: "100%", padding: "13px 0", border: "none", borderRadius: T.radius, background: loading || feedback.trim().length < 10 ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: loading || feedback.trim().length < 10 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading || feedback.trim().length < 10 ? "none" : T.shadowPrimary, fontFamily: "inherit", letterSpacing: "-0.01em", transition: "opacity 0.15s, transform 0.15s" }}
-              onMouseEnter={e => { if (!loading && feedback.trim().length >= 10) { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
-              onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
-              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Structuration en cours…</> : <><Sparkles size={16} /> Transformer en backlog</>}
-            </button>
-            <div style={{ textAlign: "center", marginTop: 12 }}>
-              <button onClick={() => onSetBacklog(MOCK_KANBAN)} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline" }}>
-                Voir un exemple avec le cas Kantara →
-              </button>
-            </div>
-          </div>
           </div>
         </div>
       ) : (
@@ -1481,6 +1475,43 @@ function PageParametres() {
   );
 }
 
+/* ─── TIPS DU JOUR ───────────────────────────────────────────── */
+const TIPS_DU_JOUR = [
+  "Un bon critère d'acceptation se teste en moins de 5 minutes par quelqu'un hors de l'équipe.",
+  "Avant toute User Story, demande-toi : quel workaround l'utilisateur fait-il aujourd'hui ?",
+  "Le 'Must Have' ne devrait pas dépasser 60 % du scope d'une release — sinon tout est prioritaire.",
+  "Un Spike produit une décision documentée, jamais du code livrable en production.",
+  "La valeur métier se quantifie toujours : temps gagné, erreurs évitées, NPS amélioré.",
+  "Le meilleur feedback vient des utilisateurs qui ont abandonné la feature, pas de ceux qui l'ont adoptée.",
+  "Un Epic livré en un seul sprint est probablement une Feature mal nommée.",
+  "Écrire la démo avant le développement est la meilleure façon de détecter les ambiguïtés.",
+];
+
+function TipsBanner() {
+  const [visible, setVisible] = useState(true);
+  const [idx] = useState(() => Math.floor(Math.random() * TIPS_DU_JOUR.length));
+  if (!visible) return null;
+  return (
+    <div style={{
+      backgroundColor: "#F0F0FF", borderBottom: `1px solid #DDDDF5`,
+      padding: "9px 20px", display: "flex", alignItems: "center", gap: 10,
+      flexShrink: 0,
+    }}>
+      <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
+      <span style={{ fontSize: 12.5, color: "#4338CA", flex: 1, lineHeight: 1.5 }}>
+        <strong style={{ fontWeight: 700 }}>Tip du jour · </strong>{TIPS_DU_JOUR[idx]}
+      </span>
+      <button onClick={() => setVisible(false)} style={{
+        background: "none", border: "none", cursor: "pointer", color: "#A5B4FC",
+        fontSize: 18, lineHeight: 1, padding: "0 4px", flexShrink: 0,
+        transition: "color 0.15s",
+      }}
+      onMouseEnter={e => e.currentTarget.style.color = "#6366F1"}
+      onMouseLeave={e => e.currentTarget.style.color = "#A5B4FC"}>×</button>
+    </div>
+  );
+}
+
 /* ─── APP HEADER ─────────────────────────────────────────────── */
 const NAV_ITEMS = [
   { id: "analyser",   label: "Analyser",   Icon: Sparkles  },
@@ -1495,17 +1526,14 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
 
   return (
     <header style={{
-      height: 60, backgroundColor: "#FFFFFF", borderBottom: `1px solid ${T.border}`,
+      height: 52, backgroundColor: "#FFFFFF", borderBottom: `1px solid ${T.border}`,
       display: "flex", alignItems: "center", padding: "0 20px", gap: 16,
       flexShrink: 0, zIndex: 100, boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
     }}>
       {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 160 }}>
-        <img src={logoSrc} alt="FeedbackPO" style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em", lineHeight: 1.2 }}>FeedbackPO</div>
-          <div style={{ fontSize: 10, color: T.textSubtle, fontWeight: 500 }}>Feedback → Backlog</div>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 140 }}>
+        <img src={logoSrc} alt="FeedbackPO" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
+        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em" }}>FeedbackPO</div>
       </div>
 
       {/* Nav pills */}
@@ -1546,21 +1574,18 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
         </div>
       </div>
 
-      {/* Greeting + avatar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, minWidth: 160, justifyContent: "flex-end" }}>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.3 }}>Hey, Ernestine</div>
-          <div style={{ fontSize: 10.5, color: T.textSubtle, fontWeight: 400 }}>Product Owner</div>
-        </div>
+      {/* Avatar only */}
+      <div style={{ flexShrink: 0, minWidth: 140, display: "flex", justifyContent: "flex-end" }}>
         <div style={{
-          width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+          width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
           background: T.gradient,
           display: "flex", alignItems: "center", justifyContent: "center",
-          color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+          color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
           boxShadow: "0 2px 8px rgba(92,95,212,.32)",
           transition: "transform 0.15s ease, box-shadow 0.15s ease",
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(92,95,212,.45)"; }}
+        title="Ernestine · Product Owner"
+        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(92,95,212,.45)"; }}
         onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(92,95,212,.32)"; }}>
           E
         </div>
@@ -1572,7 +1597,7 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
 /* ─── APP ────────────────────────────────────────────────────── */
 export default function App() {
   const [activeNav, setActiveNav] = useState("analyser");
-  const [backlog, setBacklog]     = useState(MOCK_KANBAN);
+  const [backlog, setBacklog]     = useState([]);
 
   const navigateToAnalyser = (items) => { setBacklog(items); setActiveNav("analyser"); };
 
@@ -1601,6 +1626,7 @@ export default function App() {
         @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }
       `}</style>
 
+      <TipsBanner />
       <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
