@@ -1003,7 +1003,7 @@ function DemoBanner() {
 }
 
 /* ─── PAGE: ANALYSER ─────────────────────────────────────────── */
-function PageAnalyser({ backlog, onSetBacklog }) {
+function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) {
   const [feedback, setFeedback]       = useState("");
   const [outputType, setOutputType]   = useState("auto");
   const [framework, setFramework]     = useState("MoSCoW");
@@ -1049,6 +1049,7 @@ function PageAnalyser({ backlog, onSetBacklog }) {
         prototypes: [], commentaires: [], valeur_metier: item.valeur_metier || "",
       })));
       setFilter(null);
+      setAnalyserMode("result");
     } catch (e) { setError(e.message || "Erreur inattendue."); }
     finally { setLoading(false); }
   };
@@ -1078,14 +1079,14 @@ function PageAnalyser({ backlog, onSetBacklog }) {
 
   return (
     <>
-      {hasBacklog && (
+      {hasBacklog && analyserMode === "result" && (
         <div style={{ backgroundColor: "#FAFAFA", borderBottom: `1px solid ${T.border}`, padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>Backlog généré</span>
             <span style={{ fontSize: 11, fontWeight: 600, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 20, padding: "2px 9px", border: `1px solid ${T.primaryMid}44` }}>{backlog.length} items</span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { onSetBacklog([]); setFeedback(""); setError(""); setFilter(null); }} style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "transparent", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
+            <button onClick={() => { setFeedback(""); setError(""); setFilter(null); setAnalyserMode("input"); }} style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "transparent", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
               onMouseEnter={e => e.currentTarget.style.backgroundColor = "#F3F4F6"}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
               <RefreshCw size={12} /> Nouveau feedback
@@ -1099,7 +1100,7 @@ function PageAnalyser({ backlog, onSetBacklog }) {
         </div>
       )}
 
-      {!hasBacklog ? (
+      {analyserMode !== "result" ? (
         <div style={{ flex: 1, overflow: "auto" }}>
           {/* Full hero with greeting + textarea */}
           <div style={{
@@ -1172,7 +1173,7 @@ function PageAnalyser({ backlog, onSetBacklog }) {
               </div>
 
               <div style={{ textAlign: "center", marginTop: 14 }}>
-                <button onClick={() => onSetBacklog(MOCK_KANBAN)} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
+                <button onClick={() => { onSetBacklog(MOCK_KANBAN); setAnalyserMode("result"); }} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
                   Voir un exemple avec le cas Kantara →
                 </button>
               </div>
@@ -1520,7 +1521,7 @@ const NAV_ITEMS = [
   { id: "settings",   label: "Paramètres", Icon: Settings2 },
 ];
 
-function AppHeader({ activeNav, setActiveNav, backlog }) {
+function AppHeader({ activeNav, setActiveNav, backlog, goHome }) {
   const boardCount = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length;
 
   return (
@@ -1529,8 +1530,9 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
       display: "flex", alignItems: "center", padding: "0 20px", gap: 16,
       flexShrink: 0, zIndex: 100, boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
     }}>
-      {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 140 }}>
+      {/* Logo — cliquable pour revenir à l'accueil */}
+      <div onClick={goHome} style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 140, cursor: "pointer", userSelect: "none" }}
+        title="Retour à l'accueil">
         <img src={logoSrc} alt="FeedbackPO" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
         <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em" }}>FeedbackPO</div>
       </div>
@@ -1545,7 +1547,7 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
             const active = activeNav === id;
             const badge = id === "board" ? boardCount : id === "historique" ? MOCK_HISTORY.length : 0;
             return (
-              <button key={id} onClick={() => setActiveNav(id)} style={{
+              <button key={id} onClick={() => id === "analyser" ? goHome() : setActiveNav(id)} style={{
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "6px 14px", borderRadius: 99, border: "none",
                 cursor: "pointer", fontFamily: "inherit",
@@ -1595,13 +1597,15 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
 
 /* ─── APP ────────────────────────────────────────────────────── */
 export default function App() {
-  const [activeNav, setActiveNav] = useState("analyser");
-  const [backlog, setBacklog]     = useState(MOCK_KANBAN);
+  const [activeNav, setActiveNav]       = useState("analyser");
+  const [backlog, setBacklog]           = useState(MOCK_KANBAN);
+  const [analyserMode, setAnalyserMode] = useState("result");
 
-  const navigateToAnalyser = (items) => { setBacklog(items); setActiveNav("analyser"); };
+  const goHome = () => { setActiveNav("analyser"); setAnalyserMode("input"); };
+  const navigateToAnalyser = (items) => { setBacklog(items); setActiveNav("analyser"); setAnalyserMode("result"); };
 
   const PAGES = {
-    analyser:   <PageAnalyser backlog={backlog} onSetBacklog={setBacklog} />,
+    analyser:   <PageAnalyser backlog={backlog} onSetBacklog={setBacklog} analyserMode={analyserMode} setAnalyserMode={setAnalyserMode} />,
     board:      <PageGlobalBoard backlog={backlog} onSetBacklog={setBacklog} />,
     historique: <PageHistorique onViewItems={navigateToAnalyser} />,
     rapport:    <PageRapport />,
@@ -1626,7 +1630,7 @@ export default function App() {
       `}</style>
 
       <TipsBanner />
-      <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} />
+      <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} goHome={goHome} />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {PAGES[activeNav]}
