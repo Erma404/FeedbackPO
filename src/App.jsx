@@ -524,8 +524,9 @@ function PrototypePanel({ prototypes, onChange }) {
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────────── */
-function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelectNode, isDragging = false }) {
+function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelectNode, isDragging = false, dragListeners, dragAttributes }) {
   const [expanded, setExpanded] = useState(false);
+  const [acOpen, setAcOpen]     = useState(false);
   const [showSP, setShowSP]     = useState(false);
   const [saved, setSaved]       = useState(false);
   const saveTimer = useRef();
@@ -557,8 +558,19 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
   const parentCfg = parent ? (TYPE_CFG[parent.type] || TYPE_CFG["User Story"]) : null;
 
   return (
-    <div id={`card-${item.id}`} style={{ backgroundColor: highlighted ? "#F0F0FF" : T.card, borderRadius: T.radius, padding: "14px 16px", boxShadow: isDragging ? T.shadowMd : (highlighted ? `0 0 0 2px ${T.primary}` : T.shadow), border: `1px solid ${highlighted ? T.primary : T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, animation: highlighted ? "pulseRing 0.6s ease 2" : "none", transition: "box-shadow 0.15s, border-color 0.15s" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+    <div id={`card-${item.id}`} style={{ backgroundColor: highlighted ? "#F0F0FF" : T.card, borderRadius: T.radius, boxShadow: isDragging ? T.shadowMd : (highlighted ? `0 0 0 2px ${T.primary}` : T.shadow), border: `1px solid ${highlighted ? T.primary : T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, animation: highlighted ? "pulseRing 0.6s ease 2" : "none", transition: "box-shadow 0.15s, border-color 0.15s", overflow: "hidden" }}>
+
+      {/* ── Drag handle ── */}
+      {dragListeners && (
+        <div {...dragListeners} {...dragAttributes} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, padding: "5px 0 4px", cursor: isDragging ? "grabbing" : "grab", backgroundColor: "rgba(0,0,0,0.018)", borderBottom: `1px solid ${T.borderSubtle}`, touchAction: "none", userSelect: "none" }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = "rgba(92,95,212,0.06)"}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.018)"}>
+          {[0,1,2,3,4].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", backgroundColor: "#C4C4D4" }} />)}
+        </div>
+      )}
+
+      <div style={{ padding: "10px 13px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
         <TypeBadge type={item.type} />
         <StatusBadge status={item.status} />
         {saved && <span style={{ fontSize: 10.5, color: T.success, fontWeight: 600, marginLeft: "auto" }}>Enregistré ✓</span>}
@@ -579,13 +591,13 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
         </div>
       )}
 
-      <div style={{ marginBottom: 6 }}>
+      <div style={{ marginBottom: 6 }} onPointerDown={e => e.stopPropagation()}>
         <InlineEdit value={item.titre} onChange={v => update({ titre: v })} multiline style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.5 }} />
       </div>
 
-      <div style={{ display: "flex", gap: 6, alignItems: "flex-start", backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: "6px 10px", marginBottom: 9 }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "flex-start", backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: "5px 9px", marginBottom: 8 }} onPointerDown={e => e.stopPropagation()}>
         <Target size={12} color={T.success} style={{ flexShrink: 0, marginTop: 2 }} />
-        <InlineEdit value={item.valeur_metier} onChange={v => update({ valeur_metier: v })} multiline placeholder="Valeur métier attendue…" style={{ fontSize: 12, color: "#15803D", lineHeight: 1.5 }} />
+        <InlineEdit value={item.valeur_metier} onChange={v => update({ valeur_metier: v })} multiline placeholder="Valeur métier attendue…" style={{ fontSize: 11.5, color: "#15803D", lineHeight: 1.5 }} />
       </div>
 
       {item.prototypes?.length > 0 && (
@@ -599,16 +611,21 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
         </div>
       )}
 
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+      <div style={{ marginBottom: 8 }}>
+        <button onClick={() => setAcOpen(!acOpen)} style={{ display: "flex", alignItems: "center", gap: 5, width: "100%", background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "inherit" }}>
           <ListChecks size={12} color={T.textSubtle} />
           <span style={{ fontSize: 11, color: T.textSubtle, fontWeight: 600, letterSpacing: "0.04em" }}>CRITÈRES D'ACCEPTATION</span>
           <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 4, padding: "0 6px" }}>{item.criteres_acceptation?.length || 0}</span>
-        </div>
-        <ACEditor criteres={item.criteres_acceptation || []} onChange={v => update({ criteres_acceptation: v })} />
+          <ChevronDown size={11} color={T.textSubtle} style={{ marginLeft: "auto", transform: acOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+        </button>
+        {acOpen && (
+          <div style={{ marginTop: 6 }} onPointerDown={e => e.stopPropagation()}>
+            <ACEditor criteres={item.criteres_acceptation || []} onChange={v => update({ criteres_acceptation: v })} />
+          </div>
+        )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: expanded ? 12 : 0, position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: expanded ? 12 : 0, position: "relative" }} onPointerDown={e => e.stopPropagation()}>
         <div style={{ position: "relative" }}>
           <SPBadge sp={item.story_points} onClick={() => setShowSP(!showSP)} />
           {showSP && <SPPicker value={item.story_points} onChange={v => update({ story_points: v })} onClose={() => setShowSP(false)} />}
@@ -651,6 +668,7 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
           <span style={{ fontSize: 11.5, color: "#92400E", lineHeight: 1.5 }}>Feedback ambigu — clarifier avec le stakeholder avant de mettre en backlog.</span>
         </div>
       )}
+      </div>{/* end padding wrapper */}
     </div>
   );
 }
@@ -660,12 +678,7 @@ function SortableCard({ item, allItems, onUpdate, highlighted, onNavigate, onSel
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined };
   return (
     <div ref={setNodeRef} style={style}>
-      <div style={{ position: "relative" }}>
-        <div {...listeners} {...attributes} style={{ position: "absolute", top: 10, right: -4, zIndex: 10, cursor: "grab", padding: 4, color: T.textSubtle, opacity: 0.4, touchAction: "none" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.4}>
-          <GripVertical size={14} />
-        </div>
-        <KanbanCard item={item} allItems={allItems} onUpdate={onUpdate} highlighted={highlighted} onNavigate={onNavigate} onSelectNode={onSelectNode} isDragging={isDragging} />
-      </div>
+      <KanbanCard item={item} allItems={allItems} onUpdate={onUpdate} highlighted={highlighted} onNavigate={onNavigate} onSelectNode={onSelectNode} isDragging={isDragging} dragListeners={listeners} dragAttributes={attributes} />
     </div>
   );
 }
