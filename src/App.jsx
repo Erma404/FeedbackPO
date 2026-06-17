@@ -1118,7 +1118,7 @@ function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) 
                 👋 Hey, Ernestine !
               </h1>
               <p style={{ fontSize: 13.5, color: T.textMuted, margin: "0 0 22px", fontWeight: 400, animation: "fadeInUp 0.45s ease 0.05s both", lineHeight: 1.6 }}>
-                Colle un feedback brut ci-dessous — Claude le transforme en backlog structuré en quelques secondes.
+                Colle un feedback brut ci-dessous — Et je le transforme en backlog structuré en quelques secondes.
               </p>
 
               {/* Textarea directly in hero */}
