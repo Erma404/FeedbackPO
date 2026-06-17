@@ -1078,27 +1078,26 @@ function PageAnalyser({ backlog, onSetBacklog }) {
 
   return (
     <>
-      <div style={{ backgroundColor: T.sidebar, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <h1 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: T.gradient, display: "flex", alignItems: "center", justifyContent: "center" }}><Sparkles size={13} color="#fff" /></div>
-          Feedback Analyzer
-          {hasBacklog && <span style={{ fontSize: 12, fontWeight: 600, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 20, padding: "2px 11px", border: `1px solid ${T.primaryMid}44` }}>{backlog.length} items</span>}
-        </h1>
-        {hasBacklog && (
+      {hasBacklog && (
+        <div style={{ backgroundColor: "#FAFAFA", borderBottom: `1px solid ${T.border}`, padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>Backlog généré</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 20, padding: "2px 9px", border: `1px solid ${T.primaryMid}44` }}>{backlog.length} items</span>
+          </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { onSetBacklog([]); setFeedback(""); setError(""); setFilter(null); }} style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "#F9FAFB", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "6px 13px", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
+            <button onClick={() => { onSetBacklog([]); setFeedback(""); setError(""); setFilter(null); }} style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "transparent", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
               onMouseEnter={e => e.currentTarget.style.backgroundColor = "#F3F4F6"}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = "#F9FAFB"}>
-              <RefreshCw size={13} /> Nouveau
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
+              <RefreshCw size={12} /> Nouveau feedback
             </button>
-            <button onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: 6, background: T.gradient, color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: T.shadowPrimary, transition: "opacity 0.15s" }}
+            <button onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: 5, background: T.gradient, color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "5px 13px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: T.shadowPrimary, transition: "opacity 0.15s" }}
               onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
               onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-              <Download size={13} /> Exporter
+              <Download size={12} /> Exporter
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {!hasBacklog ? (
         <div style={{ flex: 1, overflow: "auto" }}>
@@ -1597,7 +1596,7 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
 /* ─── APP ────────────────────────────────────────────────────── */
 export default function App() {
   const [activeNav, setActiveNav] = useState("analyser");
-  const [backlog, setBacklog]     = useState([]);
+  const [backlog, setBacklog]     = useState(MOCK_KANBAN);
 
   const navigateToAnalyser = (items) => { setBacklog(items); setActiveNav("analyser"); };
 
