@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import logoSrc from "./assets/logo.png";
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   closestCorners, useDroppable,
@@ -1072,9 +1073,7 @@ function PageAnalyser({ backlog, onSetBacklog }) {
             <div style={{ position: "absolute", width: 140, height: 140, borderRadius: "50%", background: "rgba(139,92,246,0.08)", bottom: -40, right: 20, pointerEvents: "none", animation: "floatOrb 8s ease-in-out infinite 1s" }} />
             <div style={{ position: "relative", zIndex: 1, maxWidth: 700, margin: "0 auto" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: T.gradient, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(92,95,212,.3)", animation: "fadeIn 0.4s ease" }}>
-                  <Sparkles size={18} color="#fff" />
-                </div>
+                <img src={logoSrc} alt="FeedbackPO" style={{ width: 44, height: 44, borderRadius: 13, objectFit: "cover", boxShadow: "0 4px 14px rgba(92,95,212,.3)", animation: "fadeIn 0.4s ease", flexShrink: 0 }} />
                 <div>
                   <h2 style={{ fontSize: 20, fontWeight: 800, color: T.text, margin: 0, letterSpacing: "-0.03em", animation: "fadeInUp 0.45s ease both" }}>
                     Bonjour, Ernestine
@@ -1460,13 +1459,7 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
     }}>
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 160 }}>
-        <div style={{
-          width: 34, height: 34, background: T.gradient, borderRadius: 10, flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 2px 10px rgba(92,95,212,.35)",
-        }}>
-          <Zap size={16} color="#fff" fill="#fff" />
-        </div>
+        <img src={logoSrc} alt="FeedbackPO" style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em", lineHeight: 1.2 }}>FeedbackPO</div>
           <div style={{ fontSize: 10, color: T.textSubtle, fontWeight: 500 }}>Feedback → Backlog</div>
