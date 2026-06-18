@@ -76,6 +76,12 @@ const PRIO_CFG = {
   "Could Have":  { bg: "#FEFCE8", color: "#A16207" },
   "Won't Have":  { bg: "#F9FAFB", color: "#6B7280" },
 };
+const MOSCOW_TO_P = {
+  "Must Have":   "P1",
+  "Should Have": "P2",
+  "Could Have":  "P3",
+  "Won't Have":  "P4",
+};
 
 /* ─── SYSTEM PROMPT ─────────────────────────────────────────── */
 const SYSTEM_PROMPT = `Tu es un expert Product Owner senior. Tu transformes des feedbacks bruts en éléments de backlog structurés.
@@ -622,7 +628,9 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
         <TypeBadge type={item.type} />
         <StatusBadge status={item.status} />
         {item.priorite?.valeur && (
-          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color, border: `1px solid ${pc.color}22` }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color, border: `1px solid ${pc.color}22` }}>
+            <span style={{ fontWeight: 800 }}>{MOSCOW_TO_P[item.priorite.valeur] ?? ""}</span>
+            <span style={{ opacity: 0.55, fontSize: 10 }}>·</span>
             {item.priorite.valeur}
           </span>
         )}
