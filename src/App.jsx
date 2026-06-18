@@ -1089,25 +1089,13 @@ function DemoBanner() {
 }
 
 /* ─── PAGE: ANALYSER ─────────────────────────────────────────── */
-function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) {
-  const [feedback, setFeedback]       = useState("");
-  const [outputType, setOutputType]   = useState("auto");
-  const [framework, setFramework]     = useState("MoSCoW");
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState("");
-  const [highlightedId, setHighId]    = useState(null);
-  const [activeFilter, setFilter]     = useState(null);
-
-  const hasBacklog = backlog.length > 0;
-
-  const handleNavigate = (id) => {
-    setHighId(id);
-    setTimeout(() => setHighId(null), 2000);
-  };
-
-  const handleSelectNode = (filter) => {
-    setFilter(filter);
-  };
+function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
+  const [feedback, setFeedback]     = useState("");
+  const [outputType, setOutputType] = useState("auto");
+  const [framework, setFramework]   = useState("MoSCoW");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const charCount = feedback.length;
 
   const handleGenerate = async () => {
     if (!feedback.trim() || loading) return;
@@ -1140,189 +1128,117 @@ function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) 
         tags: item.tags || [], rice: item.rice || null,
         potentiel_doublon: item.potentiel_doublon || null,
       }))]);
-      setFilter(null);
-      setAnalyserMode("result");
+      setFeedback("");
+      onComplete();
     } catch (e) { setError(e.message || "Erreur inattendue."); }
     finally { setLoading(false); }
   };
 
-  const handleUpdate = (updated) => {
-    onSetBacklog(backlog.map(i => i.id === updated.id ? updated : i));
-  };
-
-  const handleAddItem = (item) => {
-    onSetBacklog([...backlog, item]);
-  };
-
-  const handleDeleteItem = (id) => {
-    onSetBacklog(backlog.filter(i => i.id !== id));
-  };
-
-  const handleKanbanChange = (updatedKanban) => {
-    onSetBacklog(backlog.map(b => updatedKanban.find(k => k.id === b.id) || b));
-  };
-
-  const kanbanItems = getKanbanItems(backlog, activeFilter);
-  const charCount   = feedback.length;
-
-  const toMd = (item) => `## [${item.type}] ${item.titre}\n\n**Valeur métier:** ${item.valeur_metier || "—"}\n\n**Contexte:** ${item.contexte}\n\n**Critères d'acceptation:**\n${item.criteres_acceptation?.map(c => `- [ ] ${c}`).join("\n") || ""}`;
-
-  const handleExport = () => {
-    if (!backlog.length) return;
-    const blob = new Blob([backlog.map(toMd).join("\n\n---\n\n")], { type: "text/markdown" });
-    Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "backlog.md" }).click();
-  };
-
   return (
-    <>
-      {hasBacklog && analyserMode === "result" && (
-        <div style={{ backgroundColor: "#FAFAFA", borderBottom: `1px solid ${T.border}`, padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>Backlog généré</span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 20, padding: "2px 9px", border: `1px solid ${T.primaryMid}44` }}>{backlog.length} items</span>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { setFeedback(""); setError(""); setFilter(null); setAnalyserMode("input"); }} style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "transparent", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = "#F3F4F6"}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
-              <RefreshCw size={12} /> Nouveau feedback
-            </button>
-            <button onClick={handleExport} style={{ display: "flex", alignItems: "center", gap: 5, background: T.gradient, color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "5px 13px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: T.shadowPrimary, transition: "opacity 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-              <Download size={12} /> Exporter
-            </button>
-          </div>
-        </div>
-      )}
+    <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{
+        background: T.gradientHero, padding: "40px 28px 36px",
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", width: 260, height: 260, borderRadius: "50%", background: "rgba(92,95,212,0.06)", top: -80, right: 60, pointerEvents: "none", animation: "floatOrb 6s ease-in-out infinite" }} />
+        <div style={{ position: "absolute", width: 160, height: 160, borderRadius: "50%", background: "rgba(139,92,246,0.07)", bottom: -50, right: 30, pointerEvents: "none", animation: "floatOrb 8s ease-in-out infinite 1.5s" }} />
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: T.text, margin: "0 0 6px", letterSpacing: "-0.04em", animation: "fadeInUp 0.4s ease both", lineHeight: 1.2 }}>
+            👋 Hey, Ernestine !
+          </h1>
+          <p style={{ fontSize: 13.5, color: T.textMuted, margin: "0 0 22px", fontWeight: 400, animation: "fadeInUp 0.45s ease 0.05s both", lineHeight: 1.6 }}>
+            Colle un feedback brut ci-dessous — Et je le transforme en backlog structuré en quelques secondes.
+          </p>
 
-      {analyserMode !== "result" ? (
-        <div style={{ flex: 1, overflow: "auto" }}>
-          {/* Full hero with greeting + textarea */}
-          <div style={{
-            background: T.gradientHero,
-            padding: "40px 28px 36px",
-            position: "relative",
-            overflow: "hidden",
-          }}>
-            {/* Decorative orbs */}
-            <div style={{ position: "absolute", width: 260, height: 260, borderRadius: "50%", background: "rgba(92,95,212,0.06)", top: -80, right: 60, pointerEvents: "none", animation: "floatOrb 6s ease-in-out infinite" }} />
-            <div style={{ position: "absolute", width: 160, height: 160, borderRadius: "50%", background: "rgba(139,92,246,0.07)", bottom: -50, right: 30, pointerEvents: "none", animation: "floatOrb 8s ease-in-out infinite 1.5s" }} />
-            <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto" }}>
-              {/* Big greeting */}
-              <h1 style={{ fontSize: 28, fontWeight: 800, color: T.text, margin: "0 0 6px", letterSpacing: "-0.04em", animation: "fadeInUp 0.4s ease both", lineHeight: 1.2 }}>
-                👋 Hey, Ernestine !
-              </h1>
-              <p style={{ fontSize: 13.5, color: T.textMuted, margin: "0 0 22px", fontWeight: 400, animation: "fadeInUp 0.45s ease 0.05s both", lineHeight: 1.6 }}>
-                Colle un feedback brut ci-dessous — Et je le transforme en backlog structuré en quelques secondes.
-              </p>
+          <div style={{ animation: "fadeInUp 0.5s ease 0.1s both" }}>
+            <textarea value={feedback} onChange={e => setFeedback(e.target.value)}
+              placeholder={`Ex : "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel…"`}
+              style={{ width: "100%", minHeight: 130, border: `1.5px solid rgba(92,95,212,0.18)`, borderRadius: T.radius, padding: "14px 16px", fontSize: 13.5, color: "#374151", lineHeight: 1.7, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", backgroundColor: "rgba(255,255,255,0.85)", outline: "none", transition: "border-color 0.15s, box-shadow 0.15s", boxShadow: "0 2px 12px rgba(92,95,212,0.08)" }}
+              onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = `0 0 0 3px rgba(92,95,212,0.12)`; e.target.style.backgroundColor = "#fff"; }}
+              onBlur={e => { e.target.style.borderColor = "rgba(92,95,212,0.18)"; e.target.style.boxShadow = "0 2px 12px rgba(92,95,212,0.08)"; e.target.style.backgroundColor = "rgba(255,255,255,0.85)"; }} />
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4, marginBottom: 14 }}>
+              <span style={{ fontSize: 11.5, color: charCount < 60 && charCount > 0 ? "#F59E0B" : T.textSubtle }}>{charCount} car.</span>
+            </div>
 
-              {/* Textarea directly in hero */}
-              <div style={{ animation: "fadeInUp 0.5s ease 0.1s both" }}>
-                <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder={`Ex : "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel…"`}
-                  style={{ width: "100%", minHeight: 130, border: `1.5px solid rgba(92,95,212,0.18)`, borderRadius: T.radius, padding: "14px 16px", fontSize: 13.5, color: "#374151", lineHeight: 1.7, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", backgroundColor: "rgba(255,255,255,0.85)", backdropFilter: "blur(6px)", outline: "none", transition: "border-color 0.15s, box-shadow 0.15s", boxShadow: "0 2px 12px rgba(92,95,212,0.08)" }}
-                  onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = `0 0 0 3px rgba(92,95,212,0.12), 0 2px 12px rgba(92,95,212,0.1)`; e.target.style.backgroundColor = "#fff"; }}
-                  onBlur={e => { e.target.style.borderColor = "rgba(92,95,212,0.18)"; e.target.style.boxShadow = "0 2px 12px rgba(92,95,212,0.08)"; e.target.style.backgroundColor = "rgba(255,255,255,0.85)"; }} />
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4, marginBottom: 14 }}>
-                  <span style={{ fontSize: 11.5, color: charCount < 60 && charCount > 0 ? "#F59E0B" : T.textSubtle }}>{charCount} car.</span>
-                </div>
-
-                {/* Options inline */}
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-                  <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Type de sortie</div>
-                    <PillGroup name="type" value={outputType} onChange={setOutputType} options={[{ v: "auto", label: "Auto-detect", sub: "Recommandé" }, { v: "Epic", label: "Epic" }, { v: "Feature", label: "Feature" }, { v: "User Story", label: "User Story" }, { v: "Bug", label: "Bug" }, { v: "Spike", label: "Spike" }]} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Priorisation</div>
-                    <PillGroup name="fw" value={framework} onChange={setFramework} options={[{ v: "MoSCoW", label: "MoSCoW", sub: "Must/Should/Could" }, { v: "RICE", label: "RICE", sub: "Score composite" }, { v: "Valeur-Effort", label: "Valeur/Effort", sub: "Impact vs effort" }]} />
-                  </div>
-                </div>
-
-                {error && (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.dangerLight, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 14 }}>
-                    <AlertCircle size={14} color={T.danger} style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, color: T.danger }}>{error}</span>
-                  </div>
-                )}
-
-                <button onClick={handleGenerate} disabled={loading || feedback.trim().length < 10} style={{ width: "100%", padding: "13px 0", border: "none", borderRadius: T.radius, background: loading || feedback.trim().length < 10 ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: loading || feedback.trim().length < 10 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading || feedback.trim().length < 10 ? "none" : T.shadowPrimary, fontFamily: "inherit", letterSpacing: "-0.01em", transition: "opacity 0.15s, transform 0.15s" }}
-                  onMouseEnter={e => { if (!loading && feedback.trim().length >= 10) { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
-                  onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
-                  {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Structuration en cours…</> : <><Sparkles size={16} /> Transformer en backlog</>}
-                </button>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+              <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Type de sortie</div>
+                <PillGroup name="type" value={outputType} onChange={setOutputType} options={[{ v: "auto", label: "Auto-detect", sub: "Recommandé" }, { v: "Epic", label: "Epic" }, { v: "Feature", label: "Feature" }, { v: "User Story", label: "User Story" }, { v: "Bug", label: "Bug" }, { v: "Spike", label: "Spike" }]} />
               </div>
-
-              {/* Feature pills */}
-              <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", animation: "fadeInUp 0.55s ease 0.15s both" }}>
-                {[
-                  { icon: Zap,      label: "Génération IA",    color: T.primary,  bg: "rgba(92,95,212,0.1)" },
-                  { icon: Layers,   label: "Epic → US / Bug",  color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
-                  { icon: Target,   label: "MoSCoW / RICE",    color: "#15803D",  bg: "rgba(21,128,61,0.1)" },
-                  { icon: Download, label: "Export Markdown",  color: "#C2410C",  bg: "rgba(194,65,12,0.1)" },
-                ].map(({ icon: Icon, label, color, bg }) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: bg, borderRadius: 20, padding: "4px 11px", cursor: "default" }}>
-                    <Icon size={11} color={color} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color }}>{label}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ textAlign: "center", marginTop: 14 }}>
-                <button onClick={() => { onSetBacklog(MOCK_KANBAN); setAnalyserMode("result"); }} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
-                  Voir un exemple avec le cas Kantara →
-                </button>
+              <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Priorisation</div>
+                <PillGroup name="fw" value={framework} onChange={setFramework} options={[{ v: "MoSCoW", label: "MoSCoW", sub: "Must/Should/Could" }, { v: "RICE", label: "RICE", sub: "Score composite" }, { v: "Valeur-Effort", label: "Valeur/Effort", sub: "Impact vs effort" }]} />
               </div>
             </div>
+
+            {error && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.dangerLight, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 14 }}>
+                <AlertCircle size={14} color={T.danger} style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: T.danger }}>{error}</span>
+              </div>
+            )}
+
+            <button onClick={handleGenerate} disabled={loading || feedback.trim().length < 10}
+              style={{ width: "100%", padding: "13px 0", border: "none", borderRadius: T.radius, background: loading || feedback.trim().length < 10 ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: loading || feedback.trim().length < 10 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading || feedback.trim().length < 10 ? "none" : T.shadowPrimary, fontFamily: "inherit", letterSpacing: "-0.01em", transition: "opacity 0.15s, transform 0.15s" }}
+              onMouseEnter={e => { if (!loading && feedback.trim().length >= 10) { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
+              onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
+              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Structuration en cours…</> : <><Sparkles size={16} /> Transformer en backlog</>}
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", animation: "fadeInUp 0.55s ease 0.15s both" }}>
+            {[
+              { icon: Zap,      label: "Génération IA",    color: T.primary,  bg: "rgba(92,95,212,0.1)" },
+              { icon: Layers,   label: "Epic → US / Bug",  color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
+              { icon: Target,   label: "MoSCoW / RICE",    color: "#15803D",  bg: "rgba(21,128,61,0.1)" },
+              { icon: Download, label: "Export Markdown",  color: "#C2410C",  bg: "rgba(194,65,12,0.1)" },
+            ].map(({ icon: Icon, label, color, bg }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: bg, borderRadius: 20, padding: "4px 11px", cursor: "default" }}>
+                <Icon size={11} color={color} />
+                <span style={{ fontSize: 11, fontWeight: 600, color }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 14 }}>
+            <button onClick={() => { onSetBacklog(MOCK_KANBAN); onComplete(); }} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
+              Voir un exemple avec le cas Kantara →
+            </button>
           </div>
         </div>
-      ) : (
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
-          <div style={{ flex: 1, overflow: "auto", padding: "20px 20px 20px 16px" }}>
-            <KanbanBoard items={kanbanItems} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={handleSelectNode} filter={activeFilter} />
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
 
 /* ─── PAGE: BOARD GLOBAL ─────────────────────────────────────── */
 function PageGlobalBoard({ backlog, onSetBacklog }) {
   const [highlightedId, setHighId] = useState(null);
-  const items = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type));
+  const [activeFilter, setFilter]  = useState(null);
 
-  const handleKanbanChange = (updatedKanban) => {
-    onSetBacklog(backlog.map(b => updatedKanban.find(k => k.id === b.id) || b));
-  };
+  const handleUpdate       = (updated) => onSetBacklog(backlog.map(i => i.id === updated.id ? updated : i));
+  const handleAddItem      = (item)    => onSetBacklog([...backlog, item]);
+  const handleDeleteItem   = (id)      => onSetBacklog(backlog.filter(i => i.id !== id));
+  const handleKanbanChange = (updatedKanban) => onSetBacklog(backlog.map(b => updatedKanban.find(k => k.id === b.id) || b));
+  const handleNavigate     = (id)      => { setHighId(id); setTimeout(() => setHighId(null), 2000); };
 
-  const handleDeleteItem = (id) => {
-    onSetBacklog(backlog.filter(i => i.id !== id));
-  };
+  const items = getKanbanItems(backlog, activeFilter);
 
   return (
     <>
-      <div style={{ backgroundColor: T.sidebar, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <h1 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #7C3AED 0%, #5C5FD4 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}><Layout size={13} color="#fff" /></div>
-          Backlog global
-          <span style={{ fontSize: 12, fontWeight: 600, color: T.textMuted, backgroundColor: "#F3F4F6", borderRadius: 20, padding: "2px 11px" }}>{items.length} items</span>
-        </h1>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {Object.entries({ "User Story": items.filter(i=>i.type==="User Story").length, Bug: items.filter(i=>i.type==="Bug").length, Spike: items.filter(i=>i.type==="Spike").length }).map(([type, count]) => count > 0 ? <TypeBadge key={type} type={type} /> : null)}
-        </div>
-      </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "20px 24px" }}>
-        {items.length === 0
-          ? <div style={{ textAlign: "center", padding: 60, color: T.textSubtle }}>
-              <Layers size={32} color={T.textSubtle} style={{ opacity: 0.4, marginBottom: 12 }} />
-              <p style={{ fontSize: 14, margin: 0 }}>Aucun item exécutable dans le backlog.</p>
-              <p style={{ fontSize: 13, margin: "6px 0 0", color: T.textSubtle }}>Génère un feedback dans "Analyser" pour commencer.</p>
+      {items.length === 0
+        ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10, color: T.textSubtle }}>
+            <Layers size={32} color={T.textSubtle} style={{ opacity: 0.4 }} />
+            <p style={{ fontSize: 14, margin: 0 }}>Aucun item dans le backlog.</p>
+            <p style={{ fontSize: 13, color: T.textSubtle }}>Va dans "Analyser" pour générer ton premier feedback.</p>
+          </div>
+        : <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
+            <div style={{ flex: 1, overflow: "auto", padding: "20px 20px 20px 16px" }}>
+              <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={setFilter} filter={activeFilter} />
             </div>
-          : <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={(id) => { setHighId(id); setTimeout(() => setHighId(null), 2000); }} onSelectNode={() => {}} />
-        }
-      </div>
+          </div>
+      }
     </>
   );
 }
@@ -1621,7 +1537,7 @@ const NAV_ITEMS = [
   { id: "settings",   label: "Paramètres", Icon: Settings2 },
 ];
 
-function AppHeader({ activeNav, setActiveNav, backlog, goHome }) {
+function AppHeader({ activeNav, setActiveNav, backlog }) {
   const boardCount = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length;
 
   return (
@@ -1630,9 +1546,9 @@ function AppHeader({ activeNav, setActiveNav, backlog, goHome }) {
       display: "flex", alignItems: "center", padding: "0 20px", gap: 16,
       flexShrink: 0, zIndex: 100, boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
     }}>
-      {/* Logo — cliquable pour revenir à l'accueil */}
-      <div onClick={goHome} style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 140, cursor: "pointer", userSelect: "none" }}
-        title="Retour à l'accueil">
+      {/* Logo */}
+      <div onClick={() => setActiveNav("analyser")} style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 140, cursor: "pointer", userSelect: "none" }}
+        title="Analyser un feedback">
         <img src={logoSrc} alt="FeedbackPO" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
         <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em" }}>FeedbackPO</div>
       </div>
@@ -1647,7 +1563,7 @@ function AppHeader({ activeNav, setActiveNav, backlog, goHome }) {
             const active = activeNav === id;
             const badge = id === "board" ? boardCount : id === "historique" ? MOCK_HISTORY.length : 0;
             return (
-              <button key={id} onClick={() => id === "analyser" ? goHome() : setActiveNav(id)} style={{
+              <button key={id} onClick={() => setActiveNav(id)} style={{
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "6px 14px", borderRadius: 99, border: "none",
                 cursor: "pointer", fontFamily: "inherit",
@@ -1697,17 +1613,16 @@ function AppHeader({ activeNav, setActiveNav, backlog, goHome }) {
 
 /* ─── APP ────────────────────────────────────────────────────── */
 export default function App() {
-  const [activeNav, setActiveNav]       = useState("analyser");
-  const [backlog, setBacklog]           = useState(MOCK_KANBAN);
-  const [analyserMode, setAnalyserMode] = useState("result");
+  const [activeNav, setActiveNav] = useState("analyser");
+  const [backlog, setBacklog]     = useState(MOCK_KANBAN);
 
-  const goHome = () => { setActiveNav("analyser"); setAnalyserMode("input"); };
-  const navigateToAnalyser = (items) => { setBacklog(items); setActiveNav("analyser"); setAnalyserMode("result"); };
+  const goToBacklog = () => setActiveNav("board");
+  const navigateToBacklog = (items) => { setBacklog(items); setActiveNav("board"); };
 
   const PAGES = {
-    analyser:   <PageAnalyser backlog={backlog} onSetBacklog={setBacklog} analyserMode={analyserMode} setAnalyserMode={setAnalyserMode} />,
+    analyser:   <PageAnalyser backlog={backlog} onSetBacklog={setBacklog} onComplete={goToBacklog} />,
     board:      <PageGlobalBoard backlog={backlog} onSetBacklog={setBacklog} />,
-    historique: <PageHistorique onViewItems={navigateToAnalyser} />,
+    historique: <PageHistorique onViewItems={navigateToBacklog} />,
     rapport:    <PageRapport />,
     settings:   <PageParametres />,
   };
