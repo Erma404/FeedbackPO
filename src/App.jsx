@@ -148,6 +148,41 @@ const exportAsMarkdown = (backlog) => {
   return md;
 };
 
+/* ─── HISTORY PERSISTENCE ────────────────────────────────────── */
+const HISTORY_KEY = "feedbackpo_history";
+
+const saveToHistory = (feedbackText, items, framework, durationSec) => {
+  const entry = {
+    id: makeId(),
+    date: new Date().toISOString(),
+    apercu: feedbackText.slice(0, 160) + (feedbackText.length > 160 ? "…" : ""),
+    items: items.length,
+    framework,
+    duree: `${durationSec}s`,
+    types: [...new Set(items.map(i => i.type))],
+    tags: [...new Set(items.flatMap(i => i.tags || []))].slice(0, 5),
+    savedItems: items,
+  };
+  try {
+    const prev = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([entry, ...prev].slice(0, 50)));
+  } catch {}
+};
+
+const loadHistory = () => {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+};
+
+const formatHistoryDate = (iso) => {
+  const d    = new Date(iso);
+  const diff = (Date.now() - d) / 1000;
+  const hm   = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  if (diff < 3600)   return `Il y a ${Math.round(diff / 60)} min`;
+  if (diff < 86400)  return `Aujourd'hui, ${hm}`;
+  if (diff < 172800) return `Hier, ${hm}`;
+  return `${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, ${hm}`;
+};
+
 const exportAsCSV = (backlog) => {
   const headers = ["Ref","Type","Titre","Priorité","P","Statut","SP","Module","Valeur métier","Doublons","Tags"];
   const rows = backlog.map(i => [
@@ -1298,6 +1333,7 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
   const handleGenerate = async () => {
     if (!feedback.trim() || loading) return;
     setLoading(true); setError("");
+    const startTime = Date.now();
     const typeInstruction = outputType === "auto"
       ? "Détecte automatiquement les niveaux (Epic/Feature/User Story/Bug/Spike)."
       : `Type cible : "${outputType}".`;
@@ -1317,15 +1353,17 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
         if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
         throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
       }
-      const data   = await res.json();
-      const txt    = (data.content?.[0]?.text || "").replace(/```json\n?|```\n?/g, "").trim();
-      const parsed = JSON.parse(txt).items || [];
-      onSetBacklog([...backlog, ...parsed.map(item => ({
+      const data     = await res.json();
+      const txt      = (data.content?.[0]?.text || "").replace(/```json\n?|```\n?/g, "").trim();
+      const parsed   = JSON.parse(txt).items || [];
+      const newItems = parsed.map(item => ({
         ...item, status: defaultStatus(item), ordre: 0,
         prototypes: [], commentaires: [], valeur_metier: item.valeur_metier || "",
         tags: item.tags || [], rice: item.rice || null,
         potentiel_doublon: item.potentiel_doublon || null,
-      }))]);
+      }));
+      onSetBacklog([...backlog, ...newItems]);
+      saveToHistory(feedback, newItems, framework, Math.round((Date.now() - startTime) / 1000));
       setFeedback("");
       onComplete();
     } catch (e) { setError(e.message || "Erreur inattendue."); }
@@ -1475,58 +1513,110 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
 /* ─── PAGE: HISTORIQUE ───────────────────────────────────────── */
 function PageHistorique({ onViewItems }) {
   const [selected, setSelected] = useState(null);
-  const projectColor = (p) => p === "Kantara" ? { bg: "#EEF2FF", color: "#4338CA" } : p === "Nexio" ? { bg: "#F0FDF4", color: "#15803D" } : { bg: "#FFF4ED", color: "#C2410C" };
+  const [history, setHistory]   = useState(loadHistory);
+  const isEmpty = history.length === 0;
+
+  const deleteEntry = (e, id) => {
+    e.stopPropagation();
+    const next = history.filter(h => h.id !== id);
+    setHistory(next);
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {}
+  };
+
+  const HistoryCard = ({ h, isMock = false }) => {
+    const isOpen = selected === h.id;
+    const items  = h.savedItems || h.mockItems || [];
+    return (
+      <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "16px 18px", border: `1px solid ${isOpen ? T.primaryMid : T.border}`, boxShadow: isOpen ? T.shadowMd : T.shadow, cursor: "pointer", transition: "all 0.15s", opacity: isMock ? 0.7 : 1 }} onClick={() => setSelected(isOpen ? null : h.id)}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            {isMock
+              ? <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5, backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}` }}>Exemple</span>
+              : <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5, backgroundColor: T.successLight, color: T.success, border: `1px solid ${T.successBorder}` }}>Réel</span>
+            }
+            <span style={{ fontSize: 11.5, color: T.textSubtle, display: "flex", alignItems: "center", gap: 4 }}>
+              <Calendar size={11} /> {isMock ? h.date : formatHistoryDate(h.date)}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {!isMock && (
+              <button onClick={e => deleteEntry(e, h.id)} title="Supprimer" style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textSubtle, display: "flex", alignItems: "center" }}
+                onMouseEnter={e => e.currentTarget.style.color = T.danger}
+                onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}>
+                <Trash2 size={12} />
+              </button>
+            )}
+            <ChevronDown size={14} color={T.textSubtle} style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+          </div>
+        </div>
+        <p style={{ fontSize: 12.5, color: T.text, lineHeight: 1.55, margin: "0 0 10px", fontStyle: "italic" }}>"{h.apercu}"</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: T.primaryLight, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, color: T.primary }}><Layers size={11} />{h.items} items</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#F3F4F6", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, color: T.textMuted }}><Timer size={11} />{h.framework}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: T.successLight, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, color: T.success }}><Zap size={11} />{h.duree}</span>
+        </div>
+        {h.tags?.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {h.tags.map(tag => <span key={tag} style={{ fontSize: 10.5, color: T.textSubtle, backgroundColor: "#F5F5FA", borderRadius: 4, padding: "1px 6px", border: `1px solid ${T.border}` }}>#{tag}</span>)}
+          </div>
+        )}
+        {isOpen && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+            {h.types?.length > 0 && <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>{h.types.map((t, i) => <TypeBadge key={i} type={t} />)}</div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={e => { e.stopPropagation(); if (items.length) onViewItems(items); }} disabled={!items.length} style={{ flex: 1, padding: "7px", backgroundColor: items.length ? T.primaryLight : "#F9FAFB", color: items.length ? T.primary : T.textSubtle, border: `1px solid ${items.length ? T.primaryMid + "44" : T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: items.length ? "pointer" : "not-allowed", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                <Eye size={13} /> {items.length ? "Charger dans le backlog" : "Pas d'items"}
+              </button>
+              {items.length > 0 && (
+                <button onClick={e => { e.stopPropagation(); downloadFile(exportAsMarkdown(items), `analyse-${h.id}.md`, "text/markdown"); }} style={{ padding: "7px 12px", backgroundColor: "#F9FAFB", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+                  <Download size={13} /> .md
+                </button>
+              )}
+              {items.length > 0 && (
+                <button onClick={e => { e.stopPropagation(); downloadFile(exportAsCSV(items), `analyse-${h.id}.csv`, "text/csv;charset=utf-8;"); }} style={{ padding: "7px 12px", backgroundColor: "#F9FAFB", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+                  <Download size={13} /> .csv
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
-      <div style={{ backgroundColor: T.sidebar, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", flexShrink: 0, display: "flex", alignItems: "center" }}>
+      <div style={{ backgroundColor: T.sidebar, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h1 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 9 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}><Clock size={13} color="#fff" /></div>
           Historique des analyses
-          <span style={{ fontSize: 12, fontWeight: 600, color: T.textMuted, backgroundColor: "#F3F4F6", borderRadius: 20, padding: "2px 11px" }}>{MOCK_HISTORY.length}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: T.textMuted, backgroundColor: "#F3F4F6", borderRadius: 20, padding: "2px 11px" }}>{history.length}</span>
         </h1>
       </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "28px" }}>
-        <DemoBanner />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {MOCK_HISTORY.map(h => {
-            const pc = projectColor(h.projet);
-            const isOpen = selected === h.id;
-            return (
-              <div key={h.id} style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "18px 20px", border: `1px solid ${isOpen ? T.primaryMid : T.border}`, boxShadow: isOpen ? T.shadowMd : T.shadow, cursor: "pointer", transition: "all 0.15s" }} onClick={() => setSelected(isOpen ? null : h.id)}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 6, backgroundColor: pc.bg, color: pc.color }}>{h.projet}</span>
-                    <span style={{ fontSize: 11.5, color: T.textSubtle, display: "flex", alignItems: "center", gap: 4 }}><Calendar size={11} /> {h.date}</span>
-                  </div>
-                  <ChevronDown size={15} color={T.textSubtle} style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-                </div>
-                <p style={{ fontSize: 13, color: T.text, lineHeight: 1.55, margin: "0 0 12px", fontStyle: "italic" }}>"{h.apercu}"</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: T.primaryLight, borderRadius: 6, padding: "3px 9px", fontSize: 11.5, fontWeight: 600, color: T.primary }}><Layers size={11} />{h.items} items</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#F3F4F6", borderRadius: 6, padding: "3px 9px", fontSize: 11.5, fontWeight: 600, color: T.textMuted }}><Timer size={11} />{h.framework}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: T.successLight, borderRadius: 6, padding: "3px 9px", fontSize: 11.5, fontWeight: 600, color: T.success }}><Zap size={11} />{h.duree}</span>
-                </div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {h.tags.map(tag => <span key={tag} style={{ fontSize: 11, color: T.textSubtle, backgroundColor: "#F5F5FA", borderRadius: 4, padding: "1px 7px", border: `1px solid ${T.border}` }}>#{tag}</span>)}
-                </div>
-                {isOpen && (
-                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>{h.types.map((t, i) => <TypeBadge key={i} type={t} />)}</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={(e) => { e.stopPropagation(); if (h.mockItems?.length) onViewItems(h.mockItems); }} disabled={!h.mockItems?.length} style={{ flex: 1, padding: "8px", backgroundColor: h.mockItems?.length ? T.primaryLight : "#F9FAFB", color: h.mockItems?.length ? T.primary : T.textSubtle, border: `1px solid ${h.mockItems?.length ? T.primaryMid + "44" : T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: h.mockItems?.length ? "pointer" : "not-allowed", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                        <Eye size={13} /> {h.mockItems?.length ? "Voir les items" : "Exemple uniquement"}
-                      </button>
-                      <button onClick={e => e.stopPropagation()} style={{ flex: 1, padding: "8px", backgroundColor: "#F9FAFB", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                        <Download size={13} /> Exporter
-                      </button>
-                    </div>
-                  </div>
-                )}
+      <div style={{ flex: 1, overflow: "auto", padding: "24px" }}>
+        {isEmpty ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: T.primaryLight, border: `1px solid ${T.primaryMid}44`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 20 }}>
+              <Sparkles size={14} color={T.primary} style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: T.primary }}>Aucune analyse pour l'instant — analyse un premier feedback pour le voir apparaître ici. Ci-dessous, des exemples pour illustrer.</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {MOCK_HISTORY.map(h => <HistoryCard key={h.id} h={h} isMock />)}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {history.map(h => <HistoryCard key={h.id} h={h} />)}
+            </div>
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${T.border}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 12 }}>EXEMPLES</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {MOCK_HISTORY.slice(0, 2).map(h => <HistoryCard key={h.id} h={h} isMock />)}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   );
