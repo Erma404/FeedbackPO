@@ -100,16 +100,36 @@ Format JSON exact:
     "criteres_acceptation": ["CA1","CA2"],
     "story_points": null,
     "priorite": { "framework":"MoSCoW","valeur":"Must Have","justification":"..." },
+    "rice": null,
+    "tags": [],
     "module_suggere": "...",
     "questions_clarification": ["Q1 ?"],
+    "potentiel_doublon": null,
     "ambigu": false
   }]
 }
-Règles:
+
+Règles générales:
 - Génère 1-4 items dans l'ordre Epic → Feature → US/Bug/Spike
-- valeur_metier : toujours tenter de le quantifier
+- valeur_metier : toujours tenter de le quantifier (ex: "économise 2h/sem × 50 users")
 - story_points : laisser null
-- 2-4 critères d'acceptation minimum`;
+- 2-4 critères d'acceptation minimum
+
+Tags fonctionnels (champ "tags") :
+- Toujours renseigner 2 à 5 tags parmi : UX, Performance, Mobile, Sécurité, API, Onboarding, Reporting, Notification, Export, Authentification, Paiement, Data, Accessibilité, Recherche, Intégration, Dashboard, Admin, Offline
+
+Scoring RICE (si framework="RICE" — s'applique à User Story et Feature, pas Epic) :
+- rice.reach     : nb d'utilisateurs touchés sur 3 mois (entier)
+- rice.impact    : 1=minimal, 2=moyen, 3=fort, 5=massif
+- rice.confidence: certitude estimée entre 0.1 et 1.0
+- rice.effort    : effort en semaines-développeur (nombre décimal)
+- rice.score     : arrondi(reach × impact × confidence / effort)
+- Pour les Epics et si framework≠RICE : laisser rice: null
+
+Détection de doublons (si backlog existant fourni) :
+- Comparer chaque item généré aux items existants fournis après le feedback
+- Si similitude sémantique haute ou moyenne : potentiel_doublon: { "id": "id-existant", "titre": "titre court ≤50 chars", "niveau": "haute" | "moyenne" }
+- Si aucun doublon : potentiel_doublon: null`;
 
 /* ─── UTILS ─────────────────────────────────────────────────── */
 const shortTitle = (titre) => {
@@ -570,6 +590,17 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
       )}
 
       <div style={{ padding: "10px 13px" }}>
+      {/* Alerte doublon */}
+      {item.potentiel_doublon && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, backgroundColor: "#FFFBEB", border: `1px solid #FCD34D`, borderRadius: T.radiusSm, padding: "5px 9px", marginBottom: 7 }} onPointerDown={e => e.stopPropagation()}>
+          <AlertTriangle size={11} color="#D97706" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: "#92400E", flex: 1, lineHeight: 1.4 }}>
+            Doublon {item.potentiel_doublon.niveau} · <em>"{item.potentiel_doublon.titre}"</em>
+          </span>
+          <button onClick={() => navigateTo(item.potentiel_doublon.id)} style={{ fontSize: 10.5, color: "#D97706", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, flexShrink: 0 }}>Voir →</button>
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
         <TypeBadge type={item.type} />
         <StatusBadge status={item.status} />
@@ -591,9 +622,34 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
         </div>
       )}
 
-      <div style={{ marginBottom: 6 }} onPointerDown={e => e.stopPropagation()}>
+      <div style={{ marginBottom: 5 }} onPointerDown={e => e.stopPropagation()}>
         <InlineEdit value={item.titre} onChange={v => update({ titre: v })} multiline style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.5 }} />
       </div>
+
+      {/* Tags fonctionnels */}
+      {item.tags?.length > 0 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 7 }}>
+          {item.tags.map(tag => (
+            <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Score RICE */}
+      {item.rice && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: T.radiusSm, padding: "5px 9px", marginBottom: 7 }} onPointerDown={e => e.stopPropagation()}>
+          <Zap size={11} color="#15803D" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 800, color: "#15803D", minWidth: 60 }}>RICE {item.rice.score}</span>
+          <span style={{ fontSize: 10.5, color: "#166534", opacity: 0.85 }}>
+            R:{item.rice.reach >= 1000 ? `${(item.rice.reach/1000).toFixed(0)}k` : item.rice.reach}
+            {" · "}×{item.rice.impact}
+            {" · "}{Math.round(item.rice.confidence * 100)}%
+            {" · "}{item.rice.effort}w
+          </span>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 6, alignItems: "flex-start", backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: "5px 9px", marginBottom: 8 }} onPointerDown={e => e.stopPropagation()}>
         <Target size={12} color={T.success} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -1043,10 +1099,14 @@ function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) 
       ? "Détecte automatiquement les niveaux (Epic/Feature/User Story/Bug/Spike)."
       : `Type cible : "${outputType}".`;
     try {
+      const existingCtx = backlog.length > 0
+        ? `\n\n--- BACKLOG EXISTANT (${backlog.length} items — détecte les doublons) ---\n` +
+          backlog.slice(0, 30).map(i => `[${i.id}] [${i.type}] ${i.titre}`).join("\n")
+        : "";
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: "user", content: `Framework: ${framework}\n${typeInstruction}\n\nFeedback:\n${feedback}` }] })
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: "user", content: `Framework: ${framework}\n${typeInstruction}\n\nFeedback:\n${feedback}${existingCtx}` }] })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1057,10 +1117,12 @@ function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) 
       const data   = await res.json();
       const txt    = (data.content?.[0]?.text || "").replace(/```json\n?|```\n?/g, "").trim();
       const parsed = JSON.parse(txt).items || [];
-      onSetBacklog(parsed.map(item => ({
+      onSetBacklog([...backlog, ...parsed.map(item => ({
         ...item, status: defaultStatus(item), ordre: 0,
         prototypes: [], commentaires: [], valeur_metier: item.valeur_metier || "",
-      })));
+        tags: item.tags || [], rice: item.rice || null,
+        potentiel_doublon: item.potentiel_doublon || null,
+      }))]);
       setFilter(null);
       setAnalyserMode("result");
     } catch (e) { setError(e.message || "Erreur inattendue."); }
