@@ -621,6 +621,11 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
         <TypeBadge type={item.type} />
         <StatusBadge status={item.status} />
+        {item.priorite?.valeur && (
+          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color, border: `1px solid ${pc.color}22` }}>
+            {item.priorite.valeur}
+          </span>
+        )}
         {saved && <span style={{ fontSize: 10.5, color: T.success, fontWeight: 600, marginLeft: "auto" }}>Enregistré ✓</span>}
       </div>
 
