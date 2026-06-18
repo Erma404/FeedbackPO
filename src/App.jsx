@@ -155,6 +155,17 @@ const getKanbanItems = (backlog, filter) => {
   return exec;
 };
 
+/* ─── RESPONSIVE HOOK ───────────────────────────────────────── */
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 700);
+  useEffect(() => {
+    const fn = () => setMobile(window.innerWidth < 700);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+  return mobile;
+}
+
 /* ─── MOCK DATA ─────────────────────────────────────────────── */
 const MOCK_KANBAN = [
   {
@@ -757,11 +768,11 @@ function SortableCard({ item, allItems, onUpdate, onDelete, highlighted, onNavig
 
 const COLUMNS = ["a-clarifier", "en-affinage", "pret-pour-dev", "exporte"];
 
-function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highlightedId, onNavigate, onSelectNode }) {
+function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highlightedId, onNavigate, onSelectNode, isMobile = false }) {
   const cfg = STATUS_CFG[statusKey];
   const { setNodeRef, isOver } = useDroppable({ id: statusKey });
   return (
-    <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column" }}>
+    <div style={{ flex: isMobile ? "0 0 280px" : 1, minWidth: isMobile ? 280 : 240, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "0 2px" }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: cfg.dot, flexShrink: 0 }} />
         <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{cfg.label}</span>
@@ -778,7 +789,7 @@ function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highligh
   );
 }
 
-function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlightedId, onNavigate, onSelectNode, filter }) {
+function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlightedId, onNavigate, onSelectNode, filter, isMobile = false }) {
   const [activeId, setActiveId]       = useState(null);
   const [pendingMove, setPendingMove] = useState(null);
 
@@ -854,10 +865,10 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
       )}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", ...(isMobile ? { overflowX: "auto", paddingBottom: 12, WebkitOverflowScrolling: "touch" } : {}) }}>
           {COLUMNS.map(col => {
             const colItems = items.filter(i => i.status === col).sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
-            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onUpdate={updateItem} onDelete={deleteItem} highlightedId={highlightedId} onNavigate={onNavigate} onSelectNode={onSelectNode} />;
+            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onUpdate={updateItem} onDelete={deleteItem} highlightedId={highlightedId} onNavigate={onNavigate} onSelectNode={onSelectNode} isMobile={isMobile} />;
           })}
         </div>
         <DragOverlay>{activeItem && <KanbanCard item={activeItem} allItems={allItems} onUpdate={() => {}} isDragging />}</DragOverlay>
@@ -1213,8 +1224,10 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
 
 /* ─── PAGE: BOARD GLOBAL ─────────────────────────────────────── */
 function PageGlobalBoard({ backlog, onSetBacklog }) {
+  const isMobile = useIsMobile();
   const [highlightedId, setHighId] = useState(null);
   const [activeFilter, setFilter]  = useState(null);
+  const [treeOpen, setTreeOpen]    = useState(false);
 
   const handleUpdate       = (updated) => onSetBacklog(backlog.map(i => i.id === updated.id ? updated : i));
   const handleAddItem      = (item)    => onSetBacklog([...backlog, item]);
@@ -1232,12 +1245,41 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
             <p style={{ fontSize: 14, margin: 0 }}>Aucun item dans le backlog.</p>
             <p style={{ fontSize: 13, color: T.textSubtle }}>Va dans "Analyser" pour générer ton premier feedback.</p>
           </div>
-        : <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-            <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
-            <div style={{ flex: 1, overflow: "auto", padding: "20px 20px 20px 16px" }}>
-              <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={setFilter} filter={activeFilter} />
+        : <>
+            {/* Drawer hiérarchie sur mobile */}
+            {isMobile && treeOpen && (
+              <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex" }} onClick={() => setTreeOpen(false)}>
+                <div style={{ width: "82%", maxWidth: 300, height: "100%", backgroundColor: T.sidebar, boxShadow: "4px 0 24px rgba(0,0,0,.18)", overflowY: "auto", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+                  <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={f => { setFilter(f); setTreeOpen(false); }} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
+                </div>
+                <div style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} />
+              </div>
+            )}
+
+            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+              {!isMobile && (
+                <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
+              )}
+              <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "12px 12px 20px" : "20px 20px 20px 16px" }}>
+                {isMobile && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <button onClick={() => setTreeOpen(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 13px", backgroundColor: T.primaryLight, color: T.primary, border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                      <Layers size={13} /> Hiérarchie
+                    </button>
+                    {activeFilter && (
+                      <>
+                        <span style={{ fontSize: 12, color: T.primary, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeFilter.label}</span>
+                        <button onClick={() => setFilter(null)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                          <X size={11} /> Tout
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+                <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={setFilter} filter={activeFilter} isMobile={isMobile} />
+              </div>
             </div>
-          </div>
+          </>
       }
     </>
   );
@@ -1538,35 +1580,37 @@ const NAV_ITEMS = [
 ];
 
 function AppHeader({ activeNav, setActiveNav, backlog }) {
+  const isMobile = useIsMobile();
   const boardCount = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length;
 
   return (
     <header style={{
       height: 52, backgroundColor: "#FFFFFF", borderBottom: `1px solid ${T.border}`,
-      display: "flex", alignItems: "center", padding: "0 20px", gap: 16,
-      flexShrink: 0, zIndex: 100, boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
+      display: "flex", alignItems: "center", padding: isMobile ? "0 10px" : "0 20px",
+      gap: isMobile ? 8 : 16, flexShrink: 0, zIndex: 100,
+      boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
     }}>
       {/* Logo */}
-      <div onClick={() => setActiveNav("analyser")} style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0, minWidth: 140, cursor: "pointer", userSelect: "none" }}
+      <div onClick={() => setActiveNav("analyser")} style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, cursor: "pointer", userSelect: "none" }}
         title="Analyser un feedback">
-        <img src={logoSrc} alt="FeedbackPO" style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
-        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em" }}>FeedbackPO</div>
+        <img src={logoSrc} alt="FeedbackPO" style={{ width: 30, height: 30, borderRadius: 7, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
+        {!isMobile && <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em" }}>FeedbackPO</div>}
       </div>
 
-      {/* Nav pills */}
-      <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+      {/* Nav pills — scrollable on mobile, icons only */}
+      <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", display: "flex", justifyContent: isMobile ? "flex-start" : "center", scrollbarWidth: "none", msOverflowStyle: "none" }}>
         <div style={{
           display: "flex", alignItems: "center", gap: 2,
-          backgroundColor: "#F0F0F8", borderRadius: 99, padding: "4px",
+          backgroundColor: "#F0F0F8", borderRadius: 99, padding: "4px", flexShrink: 0,
         }}>
           {NAV_ITEMS.map(({ id, label, Icon }) => {
             const active = activeNav === id;
             const badge = id === "board" ? boardCount : id === "historique" ? MOCK_HISTORY.length : 0;
             return (
               <button key={id} onClick={() => setActiveNav(id)} style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "6px 14px", borderRadius: 99, border: "none",
-                cursor: "pointer", fontFamily: "inherit",
+                display: "flex", alignItems: "center", gap: isMobile ? 0 : 6,
+                padding: isMobile ? "7px 11px" : "6px 14px", borderRadius: 99, border: "none",
+                cursor: "pointer", fontFamily: "inherit", position: "relative",
                 fontSize: 12.5, fontWeight: active ? 600 : 400,
                 color: active ? T.primary : T.textMuted,
                 backgroundColor: active ? "#FFFFFF" : "transparent",
@@ -1575,14 +1619,15 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
               }}
               onMouseEnter={e => { if (!active) { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.55)"; e.currentTarget.style.color = T.text; }}}
               onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = T.textMuted; }}}>
-                <Icon size={13} strokeWidth={active ? 2.2 : 1.8} />
-                {label}
+                <Icon size={14} strokeWidth={active ? 2.2 : 1.8} />
+                {!isMobile && label}
                 {badge > 0 && (
                   <span style={{
                     fontSize: 10, fontWeight: 700, lineHeight: 1,
                     color: active ? T.primary : "#9CA3AF",
                     backgroundColor: active ? T.primaryLight : "#E0E0EC",
-                    borderRadius: 99, padding: "1px 6px",
+                    borderRadius: 99, padding: "1px 5px",
+                    ...(isMobile ? { position: "absolute", top: 2, right: 2 } : {}),
                   }}>{badge}</span>
                 )}
               </button>
@@ -1591,12 +1636,11 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
         </div>
       </div>
 
-      {/* Avatar only */}
-      <div style={{ flexShrink: 0, minWidth: 140, display: "flex", justifyContent: "flex-end" }}>
+      {/* Avatar */}
+      <div style={{ flexShrink: 0 }}>
         <div style={{
-          width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-          background: T.gradient,
-          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 30, height: 30, borderRadius: "50%",
+          background: T.gradient, display: "flex", alignItems: "center", justifyContent: "center",
           color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
           boxShadow: "0 2px 8px rgba(92,95,212,.32)",
           transition: "transform 0.15s ease, box-shadow 0.15s ease",
