@@ -91,6 +91,80 @@ const DISCOVERY_QUESTIONS = [
   { Icon: HelpCircle,    label: "Contraintes", q: "Y a-t-il des contraintes non négociables ? (légales, techniques, deadline)" },
 ];
 
+const TECHNICAL_QUESTIONS = [
+  { Icon: Layers,        label: "Dépendances",  q: "Quelles dépendances avec les systèmes ou services existants ?" },
+  { Icon: AlertTriangle, label: "Risques",      q: "Quels risques de performance, sécurité ou scalabilité ?" },
+  { Icon: RefreshCw,     label: "Dette tech",   q: "Quelle dette technique ce ticket touche-t-il ou génère-t-il ?" },
+  { Icon: Lightbulb,     label: "Spike",        q: "Une investigation (Spike) est-elle nécessaire avant de chiffrer ?" },
+  { Icon: FileText,      label: "Migration",    q: "Faut-il prévoir une migration de données ou un versioning d'API ?" },
+];
+
+/* ─── EXPORT ─────────────────────────────────────────────────── */
+const downloadFile = (content, filename, mime) => {
+  const blob = new Blob([content], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportAsMarkdown = (backlog) => {
+  const date  = new Date().toLocaleDateString("fr-FR");
+  let md = `# Backlog FeedbackPO — ${date}\n\n`;
+  const epics = backlog.filter(i => i.type === "Epic");
+  const standalone = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type) && !backlog.some(e => e.type === "Epic" && backlog.filter(f => f.type === "Feature" && f.parentId === e.id).some(f => f.id === i.parentId)));
+
+  const fmtItem = (item, depth = 0) => {
+    const hd  = "#".repeat(Math.min(depth + 2, 6));
+    const ref = `#${toRef(item.id)}`;
+    const p   = MOSCOW_TO_P[item.priorite?.valeur] ? `${MOSCOW_TO_P[item.priorite.valeur]} · ${item.priorite.valeur}` : "";
+    const st  = STATUS_CFG[item.status]?.label ?? item.status;
+    const sp  = item.story_points ? ` | ${item.story_points} SP` : "";
+    let s = `${hd} [${item.type}] ${ref} — ${item.titre}\n`;
+    s += `> ${[p, st, sp.trim()].filter(Boolean).join(" | ")}\n\n`;
+    if (item.valeur_metier) s += `**Valeur métier** : ${item.valeur_metier}\n\n`;
+    if (item.contexte)      s += `**Contexte** : ${item.contexte}\n\n`;
+    if (item.criteres_acceptation?.length) {
+      s += `**Critères d'acceptation** :\n`;
+      item.criteres_acceptation.forEach(ca => { s += `- [ ] ${ca}\n`; });
+      s += "\n";
+    }
+    if (item.questions_clarification?.length) {
+      s += `**Questions à clarifier** :\n`;
+      item.questions_clarification.forEach(q => { s += `- ${q}\n`; });
+      s += "\n";
+    }
+    return s;
+  };
+
+  epics.forEach(epic => {
+    md += fmtItem(epic, 0);
+    backlog.filter(f => f.type === "Feature" && f.parentId === epic.id).forEach(feat => {
+      md += fmtItem(feat, 1);
+      backlog.filter(i => EXECUTABLE_TYPES.includes(i.type) && i.parentId === feat.id).forEach(i => { md += fmtItem(i, 2); });
+    });
+  });
+  standalone.forEach(i => { md += fmtItem(i, 0); });
+  return md;
+};
+
+const exportAsCSV = (backlog) => {
+  const headers = ["Ref","Type","Titre","Priorité","P","Statut","SP","Module","Valeur métier","Doublons","Tags"];
+  const rows = backlog.map(i => [
+    `#${toRef(i.id)}`, i.type,
+    `"${(i.titre || "").replace(/"/g, '""')}"`,
+    i.priorite?.valeur || "",
+    MOSCOW_TO_P[i.priorite?.valeur] || "",
+    STATUS_CFG[i.status]?.label || i.status,
+    i.story_points || "",
+    i.module_suggere || "",
+    `"${(i.valeur_metier || "").replace(/"/g, '""')}"`,
+    i.potentiel_doublon ? `#${toRef(i.potentiel_doublon.id)}` : "",
+    (i.tags || []).join("|"),
+  ]);
+  return [headers, ...rows].map(r => r.join(";")).join("\n");
+};
+
 /* ─── SYSTEM PROMPT ─────────────────────────────────────────── */
 const SYSTEM_PROMPT = `Tu es un expert Product Owner senior. Tu transformes des feedbacks bruts en éléments de backlog structurés.
 IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant/après, sans backticks markdown.
@@ -581,6 +655,7 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
   const [saved, setSaved]             = useState(false);
   const [confirmDelete, setConfirm]   = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(true);
+  const [techOpen, setTechOpen]           = useState(true);
   const needsDiscovery = item.ambigu || item.status === "a-clarifier";
   const saveTimer = useRef();
 
@@ -706,6 +781,31 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
                   <div>
                     <span style={{ fontSize: 10, fontWeight: 700, color: "#EA580C" }}>{label} — </span>
                     <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Enjeux techniques — uniquement sur tickets à clarifier ou ambigus */}
+      {needsDiscovery && (
+        <div style={{ backgroundColor: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: T.radiusSm, marginBottom: 8 }} onPointerDown={e => e.stopPropagation()}>
+          <button onClick={() => setTechOpen(!techOpen)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+            <Settings2 size={12} color="#0369A1" />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#0369A1", letterSpacing: "0.04em", flex: 1, textAlign: "left" }}>ENJEUX TECHNIQUES</span>
+            <ChevronDown size={11} color="#0369A1" style={{ transform: techOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+          </button>
+          {techOpen && (
+            <div style={{ padding: "0 10px 10px", borderTop: "1px solid #BAE6FD55" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#0369A1", letterSpacing: "0.05em", margin: "6px 0 6px" }}>À ÉVALUER AVEC L'ÉQUIPE TECH</div>
+              {TECHNICAL_QUESTIONS.map(({ Icon, label, q }, i) => (
+                <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
+                  <Icon size={11} color="#0284C7" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
+                  <div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0369A1" }}>{label} — </span>
+                    <span style={{ fontSize: 11.5, color: "#0C4A6E", lineHeight: 1.5 }}>{q}</span>
                   </div>
                 </div>
               ))}
@@ -857,6 +957,7 @@ function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highligh
 function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlightedId, onNavigate, onSelectNode, filter, isMobile = false }) {
   const [activeId, setActiveId]       = useState(null);
   const [pendingMove, setPendingMove] = useState(null);
+  const [showExport, setShowExport]   = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -914,7 +1015,24 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
             </div>
           )}
         </div>
-        <span style={{ fontSize: 11.5, color: T.textSubtle }}>{items.length} item{items.length > 1 ? "s" : ""}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11.5, color: T.textSubtle }}>{items.length} item{items.length > 1 ? "s" : ""}</span>
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setShowExport(!showExport)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <Download size={12} /> Exporter
+            </button>
+            {showExport && (
+              <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, backgroundColor: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadowMd, overflow: "hidden", minWidth: 180 }}>
+                <button onClick={() => { downloadFile(exportAsMarkdown(allItems), `backlog-${new Date().toISOString().slice(0,10)}.md`, "text/markdown"); setShowExport(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", borderBottom: `1px solid ${T.borderSubtle}`, cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: T.text, textAlign: "left" }}>
+                  <FileText size={13} color={T.primary} /> Markdown (.md)
+                </button>
+                <button onClick={() => { downloadFile(exportAsCSV(allItems), `backlog-${new Date().toISOString().slice(0,10)}.csv`, "text/csv;charset=utf-8;"); setShowExport(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: T.text, textAlign: "left" }}>
+                  <Download size={13} color={T.success} /> CSV (.csv)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {pendingMove && (
