@@ -15,7 +15,7 @@ import {
   Timer, Repeat2, FileText, Eye, Key, Bell, Sliders, Calendar,
   Layers, Target, X, Check,
   GripVertical, AlertTriangle, Users, Link, Upload,
-  Layout, Pencil, Copy, Bug, Lightbulb,
+  Layout, Pencil, Copy, Bug, Lightbulb, Trash2,
 } from "lucide-react";
 
 /* ─── TOKENS ─────────────────────────────────────────────────── */
@@ -544,11 +544,12 @@ function PrototypePanel({ prototypes, onChange }) {
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────────── */
-function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelectNode, isDragging = false, dragListeners, dragAttributes }) {
-  const [expanded, setExpanded] = useState(false);
-  const [acOpen, setAcOpen]     = useState(false);
-  const [showSP, setShowSP]     = useState(false);
-  const [saved, setSaved]       = useState(false);
+function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigate, onSelectNode, isDragging = false, dragListeners, dragAttributes }) {
+  const [expanded, setExpanded]       = useState(false);
+  const [acOpen, setAcOpen]           = useState(false);
+  const [showSP, setShowSP]           = useState(false);
+  const [saved, setSaved]             = useState(false);
+  const [confirmDelete, setConfirm]   = useState(false);
   const saveTimer = useRef();
 
   const update = (patch) => {
@@ -688,9 +689,24 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
         </div>
         <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color }}>{item.priorite?.valeur}</span>
         {item.module_suggere && <span style={{ fontSize: 11, color: T.textSubtle }}>· {item.module_suggere}</span>}
-        <button onClick={() => setExpanded(!expanded)} style={{ marginLeft: "auto", fontSize: 11, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
-          {expanded ? "Réduire" : "Plus"} <ChevronDown size={11} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-        </button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
+          {confirmDelete ? (
+            <>
+              <span style={{ fontSize: 11, color: T.danger, fontWeight: 600 }}>Supprimer ?</span>
+              <button onClick={() => onDelete?.(item.id)} style={{ fontSize: 11, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Oui</button>
+              <button onClick={() => setConfirm(false)} style={{ fontSize: 11, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Non</button>
+            </>
+          ) : (
+            <button onClick={() => setConfirm(true)} title="Supprimer ce ticket" style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textSubtle, display: "flex", alignItems: "center" }}
+              onMouseEnter={e => e.currentTarget.style.color = T.danger}
+              onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}>
+              <Trash2 size={12} />
+            </button>
+          )}
+          <button onClick={() => setExpanded(!expanded)} style={{ fontSize: 11, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+            {expanded ? "Réduire" : "Plus"} <ChevronDown size={11} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+          </button>
+        </div>
       </div>
 
       {expanded && (
@@ -729,19 +745,19 @@ function KanbanCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelec
   );
 }
 
-function SortableCard({ item, allItems, onUpdate, highlighted, onNavigate, onSelectNode }) {
+function SortableCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigate, onSelectNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined };
   return (
     <div ref={setNodeRef} style={style}>
-      <KanbanCard item={item} allItems={allItems} onUpdate={onUpdate} highlighted={highlighted} onNavigate={onNavigate} onSelectNode={onSelectNode} isDragging={isDragging} dragListeners={listeners} dragAttributes={attributes} />
+      <KanbanCard item={item} allItems={allItems} onUpdate={onUpdate} onDelete={onDelete} highlighted={highlighted} onNavigate={onNavigate} onSelectNode={onSelectNode} isDragging={isDragging} dragListeners={listeners} dragAttributes={attributes} />
     </div>
   );
 }
 
 const COLUMNS = ["a-clarifier", "en-affinage", "pret-pour-dev", "exporte"];
 
-function KanbanColumn({ statusKey, items, allItems, onUpdate, highlightedId, onNavigate, onSelectNode }) {
+function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highlightedId, onNavigate, onSelectNode }) {
   const cfg = STATUS_CFG[statusKey];
   const { setNodeRef, isOver } = useDroppable({ id: statusKey });
   return (
@@ -755,14 +771,14 @@ function KanbanColumn({ statusKey, items, allItems, onUpdate, highlightedId, onN
       <div ref={setNodeRef} style={{ flex: 1, minHeight: 80, borderRadius: T.radius, backgroundColor: isOver ? T.primaryLight : (items.length === 0 ? "#FAFAFD" : "transparent"), border: isOver ? `1.5px dashed ${T.primary}` : (items.length === 0 ? `1.5px dashed ${T.border}` : "none"), display: "flex", flexDirection: "column", justifyContent: items.length === 0 ? "center" : "flex-start", padding: items.length === 0 ? 12 : 0, transition: "background 0.15s" }}>
         {items.length === 0 && <p style={{ textAlign: "center", fontSize: 12, color: T.textSubtle, margin: 0 }}>Glisser des items ici</p>}
         <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-          {items.map(item => <SortableCard key={item.id} item={item} allItems={allItems} onUpdate={onUpdate} highlighted={highlightedId === item.id} onNavigate={onNavigate} onSelectNode={onSelectNode} />)}
+          {items.map(item => <SortableCard key={item.id} item={item} allItems={allItems} onUpdate={onUpdate} onDelete={onDelete} highlighted={highlightedId === item.id} onNavigate={onNavigate} onSelectNode={onSelectNode} />)}
         </SortableContext>
       </div>
     </div>
   );
 }
 
-function KanbanBoard({ items, allItems, onItemsChange, highlightedId, onNavigate, onSelectNode, filter }) {
+function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlightedId, onNavigate, onSelectNode, filter }) {
   const [activeId, setActiveId]       = useState(null);
   const [pendingMove, setPendingMove] = useState(null);
 
@@ -801,6 +817,7 @@ function KanbanBoard({ items, allItems, onItemsChange, highlightedId, onNavigate
   };
 
   const updateItem = (updated) => onItemsChange(items.map(i => i.id === updated.id ? updated : i));
+  const deleteItem = (id) => onDeleteItem?.(id);
 
   const totalSP  = items.filter(i => i.story_points).reduce((s, i) => s + i.story_points, 0);
   const activeItem = activeId ? items.find(i => i.id === activeId) : null;
@@ -840,7 +857,7 @@ function KanbanBoard({ items, allItems, onItemsChange, highlightedId, onNavigate
         <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
           {COLUMNS.map(col => {
             const colItems = items.filter(i => i.status === col).sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
-            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onUpdate={updateItem} highlightedId={highlightedId} onNavigate={onNavigate} onSelectNode={onSelectNode} />;
+            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onUpdate={updateItem} onDelete={deleteItem} highlightedId={highlightedId} onNavigate={onNavigate} onSelectNode={onSelectNode} />;
           })}
         </div>
         <DragOverlay>{activeItem && <KanbanCard item={activeItem} allItems={allItems} onUpdate={() => {}} isDragging />}</DragOverlay>
@@ -1137,6 +1154,10 @@ function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) 
     onSetBacklog([...backlog, item]);
   };
 
+  const handleDeleteItem = (id) => {
+    onSetBacklog(backlog.filter(i => i.id !== id));
+  };
+
   const handleKanbanChange = (updatedKanban) => {
     onSetBacklog(backlog.map(b => updatedKanban.find(k => k.id === b.id) || b));
   };
@@ -1259,7 +1280,7 @@ function PageAnalyser({ backlog, onSetBacklog, analyserMode, setAnalyserMode }) 
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
           <div style={{ flex: 1, overflow: "auto", padding: "20px 20px 20px 16px" }}>
-            <KanbanBoard items={kanbanItems} allItems={backlog} onItemsChange={handleKanbanChange} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={handleSelectNode} filter={activeFilter} />
+            <KanbanBoard items={kanbanItems} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={handleSelectNode} filter={activeFilter} />
           </div>
         </div>
       )}
@@ -1274,6 +1295,10 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
 
   const handleKanbanChange = (updatedKanban) => {
     onSetBacklog(backlog.map(b => updatedKanban.find(k => k.id === b.id) || b));
+  };
+
+  const handleDeleteItem = (id) => {
+    onSetBacklog(backlog.filter(i => i.id !== id));
   };
 
   return (
@@ -1295,7 +1320,7 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
               <p style={{ fontSize: 14, margin: 0 }}>Aucun item exécutable dans le backlog.</p>
               <p style={{ fontSize: 13, margin: "6px 0 0", color: T.textSubtle }}>Génère un feedback dans "Analyser" pour commencer.</p>
             </div>
-          : <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} highlightedId={highlightedId} onNavigate={(id) => { setHighId(id); setTimeout(() => setHighId(null), 2000); }} onSelectNode={() => {}} />
+          : <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={(id) => { setHighId(id); setTimeout(() => setHighId(null), 2000); }} onSelectNode={() => {}} />
         }
       </div>
     </>
