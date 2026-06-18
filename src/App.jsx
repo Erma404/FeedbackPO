@@ -138,6 +138,11 @@ const shortTitle = (titre) => {
   const t = m ? m[1] : titre;
   return t.length > 42 ? t.slice(0, 42) + "…" : t;
 };
+const toRef = (id) => {
+  let h = 0;
+  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return String(h % 1000000).padStart(6, "0");
+};
 const spHint     = (sp) => SP_SCALE.find(s => s.v === sp)?.hint || "";
 const makeId     = ()   => Math.random().toString(36).slice(2, 9);
 const defaultStatus = (item) => item.ambigu ? "a-clarifier" : "en-affinage";
@@ -621,7 +626,7 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
 
       {parent && (
         <button onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : "Aller au parent"} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: parentCfg.bg, color: parentCfg.color, border: `1px solid ${parentCfg.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: 8, maxWidth: "100%", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-          ↑ {parent.type} · {shortTitle(parent.titre)}
+          ↑ {parent.type} · <span style={{ fontFamily: "monospace", letterSpacing: "0.04em" }}>#{toRef(parent.id)}</span>
         </button>
       )}
 
@@ -629,7 +634,7 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
         <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
           {children.map(c => {
             const cc = TYPE_CFG[c.type] || TYPE_CFG["User Story"];
-            return <button key={c.id} onClick={() => navigateTo(c.id)} style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: cc.bg, color: cc.color, border: `1px solid ${cc.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>↓ {c.type} · {shortTitle(c.titre)}</button>;
+            return <button key={c.id} onClick={() => navigateTo(c.id)} style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: cc.bg, color: cc.color, border: `1px solid ${cc.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>↓ {c.type} · <span style={{ fontFamily: "monospace" }}>#{toRef(c.id)}</span></button>;
           })}
         </div>
       )}
@@ -1032,7 +1037,9 @@ function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, on
                   onMouseEnter={e => { if (!isActive(epic.id)) e.currentTarget.style.backgroundColor = "#FFF9F5"; }}
                   onMouseLeave={e => { if (!isActive(epic.id)) e.currentTarget.style.backgroundColor = "transparent"; }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: eCfg.dot, flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: isActive(epic.id) ? 700 : 600, color: isActive(epic.id) ? eCfg.color : T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortTitle(epic.titre)}</span>
+                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: isActive(epic.id) ? 700 : 600, color: isActive(epic.id) ? eCfg.color : T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ fontFamily: "monospace", fontSize: 10.5, opacity: 0.65, marginRight: 4 }}>#{toRef(epic.id)}</span>{shortTitle(epic.titre)}
+                  </span>
                   <span style={{ fontSize: 10.5, fontWeight: 700, color: eCfg.color, backgroundColor: eCfg.bg, border: `1px solid ${eCfg.badge}`, borderRadius: 10, padding: "0 5px", flexShrink: 0 }}>{eCount}</span>
                 </div>
                 <button onClick={() => setDetailItem(epic)} title="Modifier l'Epic" style={{ flexShrink: 0, padding: 3, background: "none", border: "none", cursor: "pointer", color: T.textSubtle, opacity: 0.5 }}
@@ -1058,7 +1065,9 @@ function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, on
                             onMouseEnter={e => { if (!fActive) e.currentTarget.style.backgroundColor = "#F5FDF7"; }}
                             onMouseLeave={e => { if (!fActive) e.currentTarget.style.backgroundColor = "transparent"; }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: fCfg.dot, flexShrink: 0 }} />
-                            <span style={{ flex: 1, fontSize: 12, fontWeight: fActive ? 700 : 500, color: fActive ? fCfg.color : T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortTitle(feat.titre)}</span>
+                            <span style={{ flex: 1, fontSize: 12, fontWeight: fActive ? 700 : 500, color: fActive ? fCfg.color : T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <span style={{ fontFamily: "monospace", fontSize: 10, opacity: 0.6, marginRight: 4 }}>#{toRef(feat.id)}</span>{shortTitle(feat.titre)}
+                            </span>
                             <span style={{ fontSize: 10, fontWeight: 700, color: fCfg.color, backgroundColor: fCfg.bg, border: `1px solid ${fCfg.badge}`, borderRadius: 10, padding: "0 5px", flexShrink: 0 }}>{fCount}</span>
                           </div>
                           <button onClick={() => setDetailItem(feat)} title="Modifier la Feature" style={{ flexShrink: 0, padding: 3, background: "none", border: "none", cursor: "pointer", color: T.textSubtle, opacity: 0.5 }}
