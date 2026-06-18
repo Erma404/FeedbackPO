@@ -83,6 +83,14 @@ const MOSCOW_TO_P = {
   "Won't Have":  "P4",
 };
 
+const DISCOVERY_QUESTIONS = [
+  { Icon: Target,        label: "Problème",    q: "Quel problème concret cela résout-il aujourd'hui ? Qu'est-ce qui se passe sans cette fonctionnalité ?" },
+  { Icon: Users,         label: "Reach",       q: "Qui est impacté, combien d'utilisateurs, à quelle fréquence ?" },
+  { Icon: AlertTriangle, label: "Inaction",    q: "Que se passe-t-il si on ne livre pas ? Quel est le coût de l'inaction ?" },
+  { Icon: BarChart2,     label: "Succès",      q: "Comment mesurerez-vous le succès ? Quelle métrique s'améliore et de combien ?" },
+  { Icon: HelpCircle,    label: "Contraintes", q: "Y a-t-il des contraintes non négociables ? (légales, techniques, deadline)" },
+];
+
 /* ─── SYSTEM PROMPT ─────────────────────────────────────────── */
 const SYSTEM_PROMPT = `Tu es un expert Product Owner senior. Tu transformes des feedbacks bruts en éléments de backlog structurés.
 IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant/après, sans backticks markdown.
@@ -572,6 +580,8 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
   const [showSP, setShowSP]           = useState(false);
   const [saved, setSaved]             = useState(false);
   const [confirmDelete, setConfirm]   = useState(false);
+  const [discoveryOpen, setDiscoveryOpen] = useState(true);
+  const needsDiscovery = item.ambigu || item.status === "a-clarifier";
   const saveTimer = useRef();
 
   const update = (patch) => {
@@ -664,6 +674,43 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
               {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Questions discovery — uniquement sur tickets à clarifier ou ambigus */}
+      {needsDiscovery && (
+        <div style={{ backgroundColor: "#FFFBF5", border: "1px solid #FED7AA", borderRadius: T.radiusSm, marginBottom: 8 }} onPointerDown={e => e.stopPropagation()}>
+          <button onClick={() => setDiscoveryOpen(!discoveryOpen)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+            <HelpCircle size={12} color="#C2410C" />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#C2410C", letterSpacing: "0.04em", flex: 1, textAlign: "left" }}>QUESTIONS STAKEHOLDER</span>
+            <ChevronDown size={11} color="#C2410C" style={{ transform: discoveryOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+          </button>
+          {discoveryOpen && (
+            <div style={{ padding: "0 10px 10px", borderTop: "1px solid #FED7AA55" }}>
+              {item.questions_clarification?.length > 0 && (
+                <>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", margin: "6px 0 5px" }}>SPÉCIFIQUES À CE TICKET</div>
+                  {item.questions_clarification.map((q, i) => (
+                    <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4, alignItems: "flex-start" }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#EA580C", flexShrink: 0, marginTop: 6, opacity: 0.7 }} />
+                      <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
+                    </div>
+                  ))}
+                  <div style={{ height: 1, backgroundColor: "#FED7AA", margin: "8px 0" }} />
+                </>
+              )}
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 6 }}>DISCOVERY FRAMEWORK</div>
+              {DISCOVERY_QUESTIONS.map(({ Icon, label, q }, i) => (
+                <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
+                  <Icon size={11} color="#EA580C" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
+                  <div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#EA580C" }}>{label} — </span>
+                    <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
