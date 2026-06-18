@@ -1645,7 +1645,7 @@ export default function App() {
       `}</style>
 
       <TipsBanner />
-      <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} goHome={goHome} />
+      <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {PAGES[activeNav]}
