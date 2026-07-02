@@ -51,10 +51,11 @@ const EXECUTABLE_TYPES = ["User Story", "Bug", "Spike"];
 const HIERARCHY_TYPES  = ["Epic", "Feature"];
 
 const STATUS_CFG = {
-  "a-clarifier":   { label: "À clarifier",  color: "#C2410C", bg: "#FFF4ED", border: "#FED7AA", dot: "#F97316" },
-  "en-affinage":   { label: "En affinage",  color: "#A16207", bg: "#FEFCE8", border: "#FDE68A", dot: "#EAB308" },
-  "pret-pour-dev": { label: "Prêt pour dev",color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0", dot: "#22C55E" },
-  "exporte":       { label: "Exporté",       color: "#4338CA", bg: "#EEEEFF", border: "#C7C8F5", dot: "#6366F1" },
+  "a-clarifier":    { label: "À clarifier",    color: "#C2410C", bg: "#FFF4ED", border: "#FED7AA", dot: "#F97316" },
+  "en-affinage":    { label: "En affinage",    color: "#A16207", bg: "#FEFCE8", border: "#FDE68A", dot: "#EAB308" },
+  "pret-pour-dev":  { label: "Sprint en cours",color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0", dot: "#22C55E" },
+  "prochain-sprint":{ label: "Prochain sprint",color: "#6D28D9", bg: "#F5F3FF", border: "#DDD6FE", dot: "#8B5CF6" },
+  "exporte":        { label: "Exporté",         color: "#4338CA", bg: "#EEEEFF", border: "#C7C8F5", dot: "#6366F1" },
 };
 
 const COMMENT_TYPES = {
@@ -147,6 +148,14 @@ const exportAsMarkdown = (backlog) => {
   standalone.forEach(i => { md += fmtItem(i, 0); });
   return md;
 };
+
+/* ─── SPRINT PERSISTENCE ─────────────────────────────────────── */
+const SPRINT_KEY = "feedbackpo_sprint";
+const loadSprint = () => {
+  try { return JSON.parse(localStorage.getItem(SPRINT_KEY) || "null") || { name: "Sprint 1", capacity: 40 }; }
+  catch { return { name: "Sprint 1", capacity: 40 }; }
+};
+const saveSprint = (s) => { try { localStorage.setItem(SPRINT_KEY, JSON.stringify(s)); } catch {} };
 
 /* ─── HISTORY PERSISTENCE ────────────────────────────────────── */
 const HISTORY_KEY = "feedbackpo_history";
@@ -789,11 +798,11 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
 
       {/* Questions discovery — uniquement sur tickets à clarifier ou ambigus */}
       {needsDiscovery && (
-        <div style={{ backgroundColor: "#FFFBF5", border: "1px solid #FED7AA", borderRadius: T.radiusSm, marginBottom: 8 }} onPointerDown={e => e.stopPropagation()}>
+        <div style={{ backgroundColor: "#FFFBF5", border: "1px solid #FED7AA", borderRadius: T.radiusSm, marginBottom: 8, overflow: "hidden" }} onPointerDown={e => e.stopPropagation()}>
           <button onClick={() => setDiscoveryOpen(!discoveryOpen)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-            <HelpCircle size={12} color="#C2410C" />
+            <HelpCircle size={12} color="#C2410C" style={{ flexShrink: 0 }} />
             <span style={{ fontSize: 11, fontWeight: 700, color: "#C2410C", letterSpacing: "0.04em", flex: 1, textAlign: "left" }}>QUESTIONS STAKEHOLDER</span>
-            <ChevronDown size={11} color="#C2410C" style={{ transform: discoveryOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            <ChevronDown size={11} color="#C2410C" style={{ flexShrink: 0, transform: discoveryOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
           </button>
           {discoveryOpen && (
             <div style={{ padding: "0 10px 10px", borderTop: "1px solid #FED7AA55" }}>
@@ -803,17 +812,17 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
                   {item.questions_clarification.map((q, i) => (
                     <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4, alignItems: "flex-start" }}>
                       <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#EA580C", flexShrink: 0, marginTop: 6, opacity: 0.7 }} />
-                      <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
+                      <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5, wordBreak: "break-word", overflowWrap: "break-word", minWidth: 0 }}>{q}</span>
                     </div>
                   ))}
                   <div style={{ height: 1, backgroundColor: "#FED7AA", margin: "8px 0" }} />
                 </>
               )}
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 6 }}>DISCOVERY FRAMEWORK</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 6 }}>QUESTIONS DE CADRAGE</div>
               {DISCOVERY_QUESTIONS.map(({ Icon, label, q }, i) => (
                 <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
                   <Icon size={11} color="#EA580C" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1, wordBreak: "break-word", overflowWrap: "break-word" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: "#EA580C" }}>{label} — </span>
                     <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
                   </div>
@@ -826,11 +835,11 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
 
       {/* Enjeux techniques — uniquement sur tickets à clarifier ou ambigus */}
       {needsDiscovery && (
-        <div style={{ backgroundColor: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: T.radiusSm, marginBottom: 8 }} onPointerDown={e => e.stopPropagation()}>
+        <div style={{ backgroundColor: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: T.radiusSm, marginBottom: 8, overflow: "hidden" }} onPointerDown={e => e.stopPropagation()}>
           <button onClick={() => setTechOpen(!techOpen)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-            <Settings2 size={12} color="#0369A1" />
+            <Settings2 size={12} color="#0369A1" style={{ flexShrink: 0 }} />
             <span style={{ fontSize: 11, fontWeight: 700, color: "#0369A1", letterSpacing: "0.04em", flex: 1, textAlign: "left" }}>ENJEUX TECHNIQUES</span>
-            <ChevronDown size={11} color="#0369A1" style={{ transform: techOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            <ChevronDown size={11} color="#0369A1" style={{ flexShrink: 0, transform: techOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
           </button>
           {techOpen && (
             <div style={{ padding: "0 10px 10px", borderTop: "1px solid #BAE6FD55" }}>
@@ -838,7 +847,7 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
               {TECHNICAL_QUESTIONS.map(({ Icon, label, q }, i) => (
                 <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
                   <Icon size={11} color="#0284C7" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1, wordBreak: "break-word", overflowWrap: "break-word" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: "#0369A1" }}>{label} — </span>
                     <span style={{ fontSize: 11.5, color: "#0C4A6E", lineHeight: 1.5 }}>{q}</span>
                   </div>
@@ -948,7 +957,7 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
       {item.ambigu && (
         <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: T.radiusSm, backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
           <AlertCircle size={12} color={T.warning} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 11.5, color: "#92400E", lineHeight: 1.5 }}>Feedback ambigu — clarifier avec le stakeholder avant de mettre en backlog.</span>
+          <span style={{ fontSize: 11.5, color: "#92400E", lineHeight: 1.5 }}>Besoin à préciser — à valider avec le stakeholder avant d'intégrer au backlog.</span>
         </div>
       )}
       </div>{/* end padding wrapper */}
@@ -966,7 +975,76 @@ function SortableCard({ item, allItems, onUpdate, onDelete, highlighted, onNavig
   );
 }
 
-const COLUMNS = ["a-clarifier", "en-affinage", "pret-pour-dev", "exporte"];
+const COLUMNS = ["a-clarifier", "en-affinage", "pret-pour-dev", "prochain-sprint", "exporte"];
+
+/* ─── SPRINT CAPACITY BAR ────────────────────────────────────── */
+function SprintCapacityBar({ sprint, usedSP, onEdit, onClose }) {
+  const pct      = sprint.capacity > 0 ? Math.min(100, Math.round((usedSP / sprint.capacity) * 100)) : 0;
+  const remaining = sprint.capacity - usedSP;
+  const isFull    = remaining <= 0;
+  const color     = isFull ? "#C2410C" : remaining <= sprint.capacity * 0.15 ? "#A16207" : "#15803D";
+  const barColor  = isFull ? "#F97316" : remaining <= sprint.capacity * 0.15 ? "#EAB308" : "#22C55E";
+  const bgColor   = isFull ? "#FFF4ED" : remaining <= sprint.capacity * 0.15 ? "#FEFCE8" : "#F0FDF4";
+  const bdColor   = isFull ? "#FED7AA" : remaining <= sprint.capacity * 0.15 ? "#FDE68A" : "#BBF7D0";
+
+  return (
+    <div style={{ backgroundColor: bgColor, border: `1px solid ${bdColor}`, borderRadius: T.radiusSm, padding: "9px 13px", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color, letterSpacing: "-0.01em" }}>{sprint.name}</span>
+          <span style={{ fontSize: 12, color, opacity: 0.8 }}>{usedSP} / {sprint.capacity} SP</span>
+          {isFull
+            ? <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", backgroundColor: "#C2410C", borderRadius: 4, padding: "1px 7px" }}>SPRINT PLEIN</span>
+            : <span style={{ fontSize: 11, color, opacity: 0.75 }}>{remaining} SP disponibles</span>
+          }
+        </div>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <button onClick={onEdit} style={{ fontSize: 11.5, color: T.textMuted, background: "none", border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+            <Settings2 size={11} /> Réglages
+          </button>
+          <button onClick={onClose} style={{ fontSize: 11.5, color: "#fff", background: "#6D28D9", border: "none", borderRadius: 6, padding: "3px 11px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+            <CheckCheck size={11} /> Clôturer le sprint
+          </button>
+        </div>
+      </div>
+      <div style={{ height: 5, backgroundColor: "rgba(0,0,0,0.08)", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, backgroundColor: barColor, borderRadius: 99, transition: "width 0.35s ease" }} />
+      </div>
+    </div>
+  );
+}
+
+/* ─── SPRINT SETTINGS PANEL ──────────────────────────────────── */
+function SprintSettingsPanel({ sprint, onSave, onClose }) {
+  const [name, setName]         = useState(sprint.name);
+  const [capacity, setCapacity] = useState(sprint.capacity);
+  return (
+    <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.3)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: 24, boxShadow: T.shadowMd, width: 340, maxWidth: "90vw" }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, margin: "0 0 18px", letterSpacing: "-0.02em" }}>Réglages du sprint</h3>
+        <div style={{ marginBottom: 13 }}>
+          <label style={{ fontSize: 10.5, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>NOM DU SPRINT</label>
+          <input value={name} onChange={e => setName(e.target.value)} style={{ width: "100%", fontSize: 13.5, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 11px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+        </div>
+        <div style={{ marginBottom: 22 }}>
+          <label style={{ fontSize: 10.5, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>CAPACITÉ EN STORY POINTS</label>
+          <input type="number" min="1" max="999" value={capacity} onChange={e => setCapacity(Math.max(1, Number(e.target.value)))}
+            style={{ width: "100%", fontSize: 13.5, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 11px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+          <div style={{ fontSize: 11, color: T.textSubtle, marginTop: 5 }}>Typiquement 30 à 50 SP pour une équipe de 4 à 6 devs.</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => { onSave({ name: name.trim() || sprint.name, capacity }); onClose(); }}
+            style={{ flex: 1, padding: "9px 0", backgroundColor: T.primary, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            Enregistrer
+          </button>
+          <button onClick={onClose} style={{ padding: "9px 14px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 7, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highlightedId, onNavigate, onSelectNode, isMobile = false }) {
   const cfg = STATUS_CFG[statusKey];
@@ -980,7 +1058,7 @@ function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highligh
         <div style={{ flex: 1, height: 1, backgroundColor: T.border }} />
       </div>
       <div ref={setNodeRef} style={{ flex: 1, minHeight: 80, borderRadius: T.radius, backgroundColor: isOver ? T.primaryLight : (items.length === 0 ? "#FAFAFD" : "transparent"), border: isOver ? `1.5px dashed ${T.primary}` : (items.length === 0 ? `1.5px dashed ${T.border}` : "none"), display: "flex", flexDirection: "column", justifyContent: items.length === 0 ? "center" : "flex-start", padding: items.length === 0 ? 12 : 0, transition: "background 0.15s" }}>
-        {items.length === 0 && <p style={{ textAlign: "center", fontSize: 12, color: T.textSubtle, margin: 0 }}>Glisser des items ici</p>}
+        {items.length === 0 && <p style={{ textAlign: "center", fontSize: 12, color: T.textSubtle, margin: 0 }}>Déposer ici</p>}
         <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
           {items.map(item => <SortableCard key={item.id} item={item} allItems={allItems} onUpdate={onUpdate} onDelete={onDelete} highlighted={highlightedId === item.id} onNavigate={onNavigate} onSelectNode={onSelectNode} />)}
         </SortableContext>
@@ -990,13 +1068,17 @@ function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highligh
 }
 
 function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlightedId, onNavigate, onSelectNode, filter, isMobile = false }) {
-  const [activeId, setActiveId]       = useState(null);
-  const [pendingMove, setPendingMove] = useState(null);
-  const [showExport, setShowExport]   = useState(false);
+  const [activeId, setActiveId]             = useState(null);
+  const [pendingMove, setPendingMove]       = useState(null);
+  const [showExport, setShowExport]         = useState(false);
+  const [sprint, setSprint]                 = useState(loadSprint);
+  const [showSprintSettings, setShowSprint] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const findContainer = (id) => COLUMNS.includes(id) ? id : items.find(i => i.id === id)?.status;
+
+  const sprintUsedSP = items.filter(i => i.status === "pret-pour-dev" && i.story_points).reduce((s, i) => s + i.story_points, 0);
 
   const onDragStart = ({ active }) => setActiveId(active.id);
 
@@ -1006,11 +1088,19 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
     const overContainer = findContainer(over.id);
     const activeItem    = items.find(i => i.id === active.id);
     if (!activeItem || !overContainer) return;
+
     if (overContainer === "pret-pour-dev" && activeItem.status !== "pret-pour-dev") {
       const missing = [];
       if (!activeItem.criteres_acceptation?.length) missing.push("critères d'acceptation");
       if (!activeItem.story_points) missing.push("story points");
       if (missing.length) { setPendingMove({ item: activeItem, targetStatus: overContainer, missing }); return; }
+
+      const itemSP  = activeItem.story_points || 0;
+      const newUsed = sprintUsedSP + itemSP;
+      if (sprint.capacity > 0 && newUsed > sprint.capacity) {
+        setPendingMove({ item: activeItem, targetStatus: "prochain-sprint", missing: [], sprintFull: true, overflow: newUsed - sprint.capacity });
+        return;
+      }
     }
     applyMove(activeItem, overContainer, active.id, over.id);
   };
@@ -1028,15 +1118,33 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
     onItemsChange(next);
   };
 
+  const closeSprint = () => {
+    const updated = items.map(i => {
+      if (i.status === "pret-pour-dev")   return { ...i, status: "exporte" };
+      if (i.status === "prochain-sprint") return { ...i, status: "pret-pour-dev" };
+      return i;
+    });
+    onItemsChange(updated);
+    const match  = sprint.name.match(/(\d+)$/);
+    const newNum = match ? parseInt(match[1]) + 1 : 2;
+    const newName = sprint.name.replace(/\d+$/, String(newNum));
+    const next = { ...sprint, name: newName };
+    setSprint(next);
+    saveSprint(next);
+  };
+
+  const updateSprint = (next) => { setSprint(next); saveSprint(next); };
+
   const updateItem = (updated) => onItemsChange(items.map(i => i.id === updated.id ? updated : i));
   const deleteItem = (id) => onDeleteItem?.(id);
 
-  const totalSP  = items.filter(i => i.story_points).reduce((s, i) => s + i.story_points, 0);
+  const totalSP    = items.filter(i => i.story_points).reduce((s, i) => s + i.story_points, 0);
   const activeItem = activeId ? items.find(i => i.id === activeId) : null;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      {/* Board header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {filter && (
             <span style={{ fontSize: 12.5, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 6, padding: "3px 10px", fontWeight: 600, border: `1px solid ${T.primaryMid}44` }}>
@@ -1046,7 +1154,7 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
           {totalSP > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: T.primaryLight, border: `1px solid ${T.primaryMid}44`, borderRadius: T.radiusSm, padding: "4px 12px" }}>
               <Zap size={13} color={T.primary} />
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: T.primary }}>{totalSP} SP ≈ {(totalSP / 4).toFixed(1)} jours</span>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: T.primary }}>{totalSP} SP total</span>
             </div>
           )}
         </div>
@@ -1070,14 +1178,46 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
         </div>
       </div>
 
+      {/* Sprint capacity bar */}
+      <SprintCapacityBar
+        sprint={sprint}
+        usedSP={sprintUsedSP}
+        onEdit={() => setShowSprint(true)}
+        onClose={closeSprint}
+      />
+
+      {/* Pending move alert */}
       {pendingMove && (
-        <div style={{ backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, borderRadius: T.radius, padding: "12px 16px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-          <AlertTriangle size={16} color={T.warning} style={{ flexShrink: 0 }} />
+        <div style={{ borderRadius: T.radius, padding: "12px 16px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10,
+          ...(pendingMove.sprintFull
+            ? { backgroundColor: "#F5F3FF", border: "1px solid #DDD6FE" }
+            : { backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}` })
+        }}>
+          {pendingMove.sprintFull
+            ? <Layers size={16} color="#6D28D9" style={{ flexShrink: 0 }} />
+            : <AlertTriangle size={16} color={T.warning} style={{ flexShrink: 0 }} />
+          }
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#92400E", marginBottom: 2 }}>Manque : {pendingMove.missing.join(" et ")}</div>
-            <div style={{ fontSize: 12, color: "#A16207" }}>Marquer "Prêt pour dev" quand même ?</div>
+            {pendingMove.sprintFull ? (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#4C1D95", marginBottom: 2 }}>
+                  Sprint plein — dépassement de {pendingMove.overflow} SP
+                </div>
+                <div style={{ fontSize: 12, color: "#6D28D9" }}>Ajouter au prochain sprint à la place ?</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#92400E", marginBottom: 2 }}>Il manque : {pendingMove.missing.join(" et ")}</div>
+                <div style={{ fontSize: 12, color: "#A16207" }}>Marquer comme prêt quand même ?</div>
+              </>
+            )}
           </div>
-          <button onClick={() => { applyMove(pendingMove.item, pendingMove.targetStatus, pendingMove.item.id, pendingMove.item.id); setPendingMove(null); }} style={{ padding: "5px 12px", backgroundColor: T.warning, color: "#fff", border: "none", borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Confirmer</button>
+          <button
+            onClick={() => { applyMove(pendingMove.item, pendingMove.targetStatus, pendingMove.item.id, pendingMove.item.id); setPendingMove(null); }}
+            style={{ padding: "5px 12px", border: "none", borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              backgroundColor: pendingMove.sprintFull ? "#6D28D9" : T.warning, color: "#fff" }}>
+            {pendingMove.sprintFull ? "Prochain sprint →" : "Confirmer"}
+          </button>
           <button onClick={() => setPendingMove(null)} style={{ padding: "5px 10px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>Annuler</button>
         </div>
       )}
@@ -1091,6 +1231,10 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
         </div>
         <DragOverlay>{activeItem && <KanbanCard item={activeItem} allItems={allItems} onUpdate={() => {}} isDragging />}</DragOverlay>
       </DndContext>
+
+      {showSprintSettings && (
+        <SprintSettingsPanel sprint={sprint} onSave={updateSprint} onClose={() => setShowSprint(false)} />
+      )}
     </div>
   );
 }
@@ -1303,7 +1447,7 @@ function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, on
           );
         })}
 
-        {epics.length === 0 && <div style={{ textAlign: "center", padding: 16, fontSize: 12.5, color: T.textSubtle }}>Génère un feedback pour voir la hiérarchie.</div>}
+        {epics.length === 0 && <div style={{ textAlign: "center", padding: 16, fontSize: 12.5, color: T.textSubtle }}>Lance une analyse pour voir la hiérarchie.</div>}
       </div>
 
       {detailItem && <DetailModal item={detailItem} onUpdate={(updated) => { onUpdateItem(updated); setDetailItem(updated); }} onClose={() => setDetailItem(null)} />}
@@ -1316,7 +1460,7 @@ function DemoBanner() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, borderRadius: T.radiusSm, padding: "8px 14px", marginBottom: 20 }}>
       <AlertCircle size={14} color={T.warning} style={{ flexShrink: 0 }} />
-      <span style={{ fontSize: 12.5, color: "#A16207" }}><strong style={{ color: "#92400E" }}>Données d'exemple</strong> — Ces chiffres illustrent la fonctionnalité. Connecte ton historique réel pour des statistiques basées sur ton usage.</span>
+      <span style={{ fontSize: 12.5, color: "#A16207" }}><strong style={{ color: "#92400E" }}>Données de démonstration</strong> — Connecte ton historique pour voir tes statistiques réelles.</span>
     </div>
   );
 }
@@ -1380,10 +1524,10 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
         <div style={{ position: "absolute", width: 160, height: 160, borderRadius: "50%", background: "rgba(139,92,246,0.07)", bottom: -50, right: 30, pointerEvents: "none", animation: "floatOrb 8s ease-in-out infinite 1.5s" }} />
         <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto" }}>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: T.text, margin: "0 0 6px", letterSpacing: "-0.04em", animation: "fadeInUp 0.4s ease both", lineHeight: 1.2 }}>
-            👋 Hey, Ernestine !
+            Bonjour, Ernestine.
           </h1>
           <p style={{ fontSize: 13.5, color: T.textMuted, margin: "0 0 22px", fontWeight: 400, animation: "fadeInUp 0.45s ease 0.05s both", lineHeight: 1.6 }}>
-            Colle un feedback brut ci-dessous — Et je le transforme en backlog structuré en quelques secondes.
+            Colle un feedback brut — il devient un backlog structuré et priorisé en quelques secondes.
           </p>
 
           <div style={{ animation: "fadeInUp 0.5s ease 0.1s both" }}>
@@ -1393,13 +1537,13 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
               onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = `0 0 0 3px rgba(92,95,212,0.12)`; e.target.style.backgroundColor = "#fff"; }}
               onBlur={e => { e.target.style.borderColor = "rgba(92,95,212,0.18)"; e.target.style.boxShadow = "0 2px 12px rgba(92,95,212,0.08)"; e.target.style.backgroundColor = "rgba(255,255,255,0.85)"; }} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4, marginBottom: 14 }}>
-              <span style={{ fontSize: 11.5, color: charCount < 60 && charCount > 0 ? "#F59E0B" : T.textSubtle }}>{charCount} car.</span>
+              {charCount > 0 && <span style={{ fontSize: 11.5, color: charCount < 60 ? "#F59E0B" : T.textSubtle }}>{charCount} caractères</span>}
             </div>
 
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
               <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Type de sortie</div>
-                <PillGroup name="type" value={outputType} onChange={setOutputType} options={[{ v: "auto", label: "Auto-detect", sub: "Recommandé" }, { v: "Epic", label: "Epic" }, { v: "Feature", label: "Feature" }, { v: "User Story", label: "User Story" }, { v: "Bug", label: "Bug" }, { v: "Spike", label: "Spike" }]} />
+                <PillGroup name="type" value={outputType} onChange={setOutputType} options={[{ v: "auto", label: "Auto", sub: "Recommandé" }, { v: "Epic", label: "Epic" }, { v: "Feature", label: "Feature" }, { v: "User Story", label: "User Story" }, { v: "Bug", label: "Bug" }, { v: "Spike", label: "Spike" }]} />
               </div>
               <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Priorisation</div>
@@ -1418,14 +1562,14 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
               style={{ width: "100%", padding: "13px 0", border: "none", borderRadius: T.radius, background: loading || feedback.trim().length < 10 ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: loading || feedback.trim().length < 10 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading || feedback.trim().length < 10 ? "none" : T.shadowPrimary, fontFamily: "inherit", letterSpacing: "-0.01em", transition: "opacity 0.15s, transform 0.15s" }}
               onMouseEnter={e => { if (!loading && feedback.trim().length >= 10) { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
               onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
-              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Structuration en cours…</> : <><Sparkles size={16} /> Transformer en backlog</>}
+              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Analyse en cours…</> : <><Sparkles size={16} /> Transformer en backlog</>}
             </button>
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", animation: "fadeInUp 0.55s ease 0.15s both" }}>
             {[
               { icon: Zap,      label: "Génération IA",    color: T.primary,  bg: "rgba(92,95,212,0.1)" },
-              { icon: Layers,   label: "Epic → US / Bug",  color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
+              { icon: Layers,   label: "Hiérarchie auto",  color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
               { icon: Target,   label: "MoSCoW / RICE",    color: "#15803D",  bg: "rgba(21,128,61,0.1)" },
               { icon: Download, label: "Export Markdown",  color: "#C2410C",  bg: "rgba(194,65,12,0.1)" },
             ].map(({ icon: Icon, label, color, bg }) => (
@@ -1438,7 +1582,7 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
 
           <div style={{ textAlign: "center", marginTop: 14 }}>
             <button onClick={() => { onSetBacklog(MOCK_KANBAN); onComplete(); }} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
-              Voir un exemple avec le cas Kantara →
+              Explorer avec les données de démo →
             </button>
           </div>
         </div>
@@ -1467,8 +1611,8 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
       {items.length === 0
         ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10, color: T.textSubtle }}>
             <Layers size={32} color={T.textSubtle} style={{ opacity: 0.4 }} />
-            <p style={{ fontSize: 14, margin: 0 }}>Aucun item dans le backlog.</p>
-            <p style={{ fontSize: 13, color: T.textSubtle }}>Va dans "Analyser" pour générer ton premier feedback.</p>
+            <p style={{ fontSize: 14, margin: 0 }}>Ton backlog est vide.</p>
+            <p style={{ fontSize: 13, color: T.textSubtle }}>Lance une analyse dans l'onglet Analyser pour générer ton premier backlog.</p>
           </div>
         : <>
             {/* Drawer hiérarchie sur mobile */}
@@ -1598,7 +1742,7 @@ function PageHistorique({ onViewItems }) {
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: T.primaryLight, border: `1px solid ${T.primaryMid}44`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 20 }}>
               <Sparkles size={14} color={T.primary} style={{ flexShrink: 0 }} />
-              <span style={{ fontSize: 12.5, color: T.primary }}>Aucune analyse pour l'instant — analyse un premier feedback pour le voir apparaître ici. Ci-dessous, des exemples pour illustrer.</span>
+              <span style={{ fontSize: 12.5, color: T.primary }}>Lance ta première analyse — elle apparaîtra ici. Quelques exemples ci-dessous pour t'inspirer.</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {MOCK_HISTORY.map(h => <HistoryCard key={h.id} h={h} isMock />)}
