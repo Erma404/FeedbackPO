@@ -502,6 +502,14 @@ function SPBadge({ sp, onClick }) {
   );
 }
 
+function Avatar({ initials = "EM", size = 20 }) {
+  return (
+    <span title="Ernestine Matjabo" style={{ width: size, height: size, borderRadius: "50%", background: T.gradient, color: "#fff", fontSize: size * 0.42, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "1.5px solid #fff", boxShadow: "0 0 0 1px " + T.border, letterSpacing: "-0.02em" }}>
+      {initials}
+    </span>
+  );
+}
+
 function PillGroup({ name, options, value, onChange }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -909,6 +917,8 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
         </div>
         <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color }}>{item.priorite?.valeur}</span>
         {item.module_suggere && <span style={{ fontSize: 11, color: T.textSubtle }}>· {item.module_suggere}</span>}
+        <span style={{ fontFamily: "monospace", fontSize: 10.5, color: T.textSubtle, letterSpacing: "0.02em" }}>#{toRef(item.id)}</span>
+        <Avatar />
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
           {confirmDelete ? (
             <>
