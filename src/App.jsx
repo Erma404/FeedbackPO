@@ -700,45 +700,21 @@ function PrototypePanel({ prototypes, onChange }) {
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────────── */
-function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigate, onSelectNode, isDragging = false, dragListeners, dragAttributes }) {
-  const [expanded, setExpanded]       = useState(false);
-  const [acOpen, setAcOpen]           = useState(false);
-  const [showSP, setShowSP]           = useState(false);
-  const [saved, setSaved]             = useState(false);
-  const [confirmDelete, setConfirm]   = useState(false);
-  const [discoveryOpen, setDiscoveryOpen] = useState(true);
-  const [techOpen, setTechOpen]           = useState(true);
+function KanbanCard({ item, allItems, onDelete, highlighted, onOpenDetail, onSelectNode, isDragging = false, dragListeners, dragAttributes }) {
+  const [confirmDelete, setConfirm] = useState(false);
   const needsDiscovery = item.ambigu || item.status === "a-clarifier";
-  const saveTimer = useRef();
 
-  const update = (patch) => {
-    onUpdate({ ...item, ...patch });
-    clearTimeout(saveTimer.current);
-    setSaved(false);
-    saveTimer.current = setTimeout(() => { setSaved(true); setTimeout(() => setSaved(false), 1500); }, 500);
-  };
-
-  const parent   = item.parentId ? allItems.find(i => i.id === item.parentId) : null;
-  const children = allItems.filter(i => i.parentId === item.id && EXECUTABLE_TYPES.includes(i.type));
-
-  const navigateTo = (targetId) => {
-    onNavigate?.(targetId);
-    setTimeout(() => document.getElementById(`card-${targetId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
-  };
-
-  const handleParentClick = () => {
-    if (parent && HIERARCHY_TYPES.includes(parent.type)) {
-      onSelectNode?.({ id: parent.id, type: parent.type.toLowerCase() });
-    } else if (parent) {
-      navigateTo(parent.id);
-    }
-  };
-
-  const pc = PRIO_CFG[item.priorite?.valeur] || { bg: "#F3F4F6", color: "#6B7280" };
+  const parent = item.parentId ? allItems.find(i => i.id === item.parentId) : null;
   const parentCfg = parent ? (TYPE_CFG[parent.type] || TYPE_CFG["User Story"]) : null;
+  const pc = PRIO_CFG[item.priorite?.valeur] || { bg: "#F3F4F6", color: "#6B7280" };
+
+  const handleParentClick = (e) => {
+    e.stopPropagation();
+    if (parent && HIERARCHY_TYPES.includes(parent.type)) onSelectNode?.({ id: parent.id, type: parent.type.toLowerCase() });
+  };
 
   return (
-    <div id={`card-${item.id}`} style={{ backgroundColor: highlighted ? "#F0F0FF" : T.card, borderRadius: T.radius, boxShadow: isDragging ? T.shadowMd : (highlighted ? `0 0 0 2px ${T.primary}` : T.shadow), border: `1px solid ${highlighted ? T.primary : T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, animation: highlighted ? "pulseRing 0.6s ease 2" : "none", transition: "box-shadow 0.15s, border-color 0.15s", overflow: "hidden" }}>
+    <div id={`card-${item.id}`} onClick={() => onOpenDetail?.(item)} style={{ backgroundColor: highlighted ? "#F0F0FF" : T.card, borderRadius: T.radius, boxShadow: isDragging ? T.shadowMd : (highlighted ? `0 0 0 2px ${T.primary}` : T.shadow), border: `1px solid ${highlighted ? T.primary : T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, animation: highlighted ? "pulseRing 0.6s ease 2" : "none", transition: "box-shadow 0.15s, border-color 0.15s", overflow: "hidden", cursor: "pointer" }}>
 
       {/* ── Drag handle ── */}
       {dragListeners && (
@@ -750,237 +726,296 @@ function KanbanCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigat
       )}
 
       <div style={{ padding: "10px 13px" }}>
-      {/* Alerte doublon */}
-      {item.potentiel_doublon && (
-        <div style={{ display: "flex", alignItems: "center", gap: 7, backgroundColor: "#FFFBEB", border: `1px solid #FCD34D`, borderRadius: T.radiusSm, padding: "5px 9px", marginBottom: 7 }} onPointerDown={e => e.stopPropagation()}>
-          <AlertTriangle size={11} color="#D97706" style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: "#92400E", flex: 1, lineHeight: 1.4 }}>
-            Doublon {item.potentiel_doublon.niveau} · <em>"{item.potentiel_doublon.titre}"</em>
-          </span>
-          <button onClick={() => navigateTo(item.potentiel_doublon.id)} style={{ fontSize: 10.5, color: "#D97706", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, flexShrink: 0 }}>Voir →</button>
-        </div>
-      )}
-
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
-        <TypeBadge type={item.type} />
-        <StatusBadge status={item.status} />
-        {item.priorite?.valeur && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color, border: `1px solid ${pc.color}22` }}>
-            <span style={{ fontWeight: 800 }}>{MOSCOW_TO_P[item.priorite.valeur] ?? ""}</span>
-            <span style={{ opacity: 0.55, fontSize: 10 }}>·</span>
-            {item.priorite.valeur}
-          </span>
+        {item.potentiel_doublon && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 7 }}>
+            <AlertTriangle size={11} color="#D97706" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 10.5, color: "#92400E", fontWeight: 600 }}>Doublon potentiel</span>
+          </div>
         )}
-        {saved && <span style={{ fontSize: 10.5, color: T.success, fontWeight: 600, marginLeft: "auto" }}>Enregistré ✓</span>}
-      </div>
 
-      {parent && (
-        <button onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : "Aller au parent"} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: parentCfg.bg, color: parentCfg.color, border: `1px solid ${parentCfg.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: 8, maxWidth: "100%", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-          ↑ {parent.type} · <span style={{ fontFamily: "monospace", letterSpacing: "0.04em" }}>#{toRef(parent.id)}</span>
-        </button>
-      )}
-
-      {children.length > 0 && (
-        <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-          {children.map(c => {
-            const cc = TYPE_CFG[c.type] || TYPE_CFG["User Story"];
-            return <button key={c.id} onClick={() => navigateTo(c.id)} style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: cc.bg, color: cc.color, border: `1px solid ${cc.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>↓ {c.type} · <span style={{ fontFamily: "monospace" }}>#{toRef(c.id)}</span></button>;
-          })}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 5 }} onPointerDown={e => e.stopPropagation()}>
-        <InlineEdit value={item.titre} onChange={v => update({ titre: v })} multiline style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.5 }} />
-      </div>
-
-      {/* Tags fonctionnels */}
-      {item.tags?.length > 0 && (
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 7 }}>
-          {item.tags.map(tag => (
-            <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>
-              {tag}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
+          <TypeBadge type={item.type} />
+          <StatusBadge status={item.status} />
+          {item.priorite?.valeur && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color, border: `1px solid ${pc.color}22` }}>
+              <span style={{ fontWeight: 800 }}>{MOSCOW_TO_P[item.priorite.valeur] ?? ""}</span>
             </span>
-          ))}
-        </div>
-      )}
-
-      {/* Questions discovery — uniquement sur tickets à clarifier ou ambigus */}
-      {needsDiscovery && (
-        <div style={{ backgroundColor: "#FFFBF5", border: "1px solid #FED7AA", borderRadius: T.radiusSm, marginBottom: 8, overflow: "hidden" }} onPointerDown={e => e.stopPropagation()}>
-          <button onClick={() => setDiscoveryOpen(!discoveryOpen)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-            <HelpCircle size={12} color="#C2410C" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#C2410C", letterSpacing: "0.04em", flex: 1, textAlign: "left" }}>QUESTIONS STAKEHOLDER</span>
-            <ChevronDown size={11} color="#C2410C" style={{ flexShrink: 0, transform: discoveryOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-          </button>
-          {discoveryOpen && (
-            <div style={{ padding: "0 10px 10px", borderTop: "1px solid #FED7AA55" }}>
-              {item.questions_clarification?.length > 0 && (
-                <>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", margin: "6px 0 5px" }}>SPÉCIFIQUES À CE TICKET</div>
-                  {item.questions_clarification.map((q, i) => (
-                    <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4, alignItems: "flex-start" }}>
-                      <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#EA580C", flexShrink: 0, marginTop: 6, opacity: 0.7 }} />
-                      <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5, wordBreak: "break-word", overflowWrap: "break-word", minWidth: 0 }}>{q}</span>
-                    </div>
-                  ))}
-                  <div style={{ height: 1, backgroundColor: "#FED7AA", margin: "8px 0" }} />
-                </>
-              )}
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 6 }}>QUESTIONS DE CADRAGE</div>
-              {DISCOVERY_QUESTIONS.map(({ Icon, label, q }, i) => (
-                <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
-                  <Icon size={11} color="#EA580C" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
-                  <div style={{ minWidth: 0, flex: 1, wordBreak: "break-word", overflowWrap: "break-word" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#EA580C" }}>{label} — </span>
-                    <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
+          {needsDiscovery && <HelpCircle size={13} color="#EA580C" style={{ flexShrink: 0 }} />}
         </div>
-      )}
 
-      {/* Enjeux techniques — uniquement sur tickets à clarifier ou ambigus */}
-      {needsDiscovery && (
-        <div style={{ backgroundColor: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: T.radiusSm, marginBottom: 8, overflow: "hidden" }} onPointerDown={e => e.stopPropagation()}>
-          <button onClick={() => setTechOpen(!techOpen)} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-            <Settings2 size={12} color="#0369A1" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#0369A1", letterSpacing: "0.04em", flex: 1, textAlign: "left" }}>ENJEUX TECHNIQUES</span>
-            <ChevronDown size={11} color="#0369A1" style={{ flexShrink: 0, transform: techOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+        {parent && (
+          <button onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: parentCfg.bg, color: parentCfg.color, border: `1px solid ${parentCfg.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: HIERARCHY_TYPES.includes(parent.type) ? "pointer" : "default", fontFamily: "inherit", marginBottom: 8, maxWidth: "100%", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+            ↑ {parent.type} · <span style={{ fontFamily: "monospace", letterSpacing: "0.04em" }}>#{toRef(parent.id)}</span>
           </button>
-          {techOpen && (
-            <div style={{ padding: "0 10px 10px", borderTop: "1px solid #BAE6FD55" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#0369A1", letterSpacing: "0.05em", margin: "6px 0 6px" }}>À ÉVALUER AVEC L'ÉQUIPE TECH</div>
-              {TECHNICAL_QUESTIONS.map(({ Icon, label, q }, i) => (
-                <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
-                  <Icon size={11} color="#0284C7" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
-                  <div style={{ minWidth: 0, flex: 1, wordBreak: "break-word", overflowWrap: "break-word" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0369A1" }}>{label} — </span>
-                    <span style={{ fontSize: 11.5, color: "#0C4A6E", lineHeight: 1.5 }}>{q}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        )}
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.45, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          {item.titre}
         </div>
-      )}
 
-      {/* Score RICE */}
-      {item.rice && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: T.radiusSm, padding: "5px 9px", marginBottom: 7 }} onPointerDown={e => e.stopPropagation()}>
-          <Zap size={11} color="#15803D" style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 11, fontWeight: 800, color: "#15803D", minWidth: 60 }}>RICE {item.rice.score}</span>
-          <span style={{ fontSize: 10.5, color: "#166534", opacity: 0.85 }}>
-            R:{item.rice.reach >= 1000 ? `${(item.rice.reach/1000).toFixed(0)}k` : item.rice.reach}
-            {" · "}×{item.rice.impact}
-            {" · "}{Math.round(item.rice.confidence * 100)}%
-            {" · "}{item.rice.effort}w
-          </span>
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 6, alignItems: "flex-start", backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: "5px 9px", marginBottom: 8 }} onPointerDown={e => e.stopPropagation()}>
-        <Target size={12} color={T.success} style={{ flexShrink: 0, marginTop: 2 }} />
-        <InlineEdit value={item.valeur_metier} onChange={v => update({ valeur_metier: v })} multiline placeholder="Valeur métier attendue…" style={{ fontSize: 11.5, color: "#15803D", lineHeight: 1.5 }} />
-      </div>
-
-      {item.prototypes?.length > 0 && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 9, flexWrap: "wrap" }}>
-          {item.prototypes.slice(0, 3).map(p => (
-            p.type === "image"
-              ? <img key={p.id} src={p.src} alt={p.caption} style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 6, border: `1px solid ${T.border}` }} />
-              : <div key={p.id} style={{ width: 56, height: 40, borderRadius: 6, border: `1px solid ${T.border}`, backgroundColor: T.primaryLight, display: "flex", alignItems: "center", justifyContent: "center" }}><Link size={14} color={T.primary} /></div>
-          ))}
-          {item.prototypes.length > 3 && <div style={{ width: 56, height: 40, borderRadius: 6, border: `1px dashed ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: T.textSubtle }}>+{item.prototypes.length - 3}</div>}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 8 }}>
-        <button onClick={() => setAcOpen(!acOpen)} style={{ display: "flex", alignItems: "center", gap: 5, width: "100%", background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "inherit" }}>
-          <ListChecks size={12} color={T.textSubtle} />
-          <span style={{ fontSize: 11, color: T.textSubtle, fontWeight: 600, letterSpacing: "0.04em" }}>CRITÈRES D'ACCEPTATION</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 4, padding: "0 6px" }}>{item.criteres_acceptation?.length || 0}</span>
-          <ChevronDown size={11} color={T.textSubtle} style={{ marginLeft: "auto", transform: acOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-        </button>
-        {acOpen && (
-          <div style={{ marginTop: 6 }} onPointerDown={e => e.stopPropagation()}>
-            <ACEditor criteres={item.criteres_acceptation || []} onChange={v => update({ criteres_acceptation: v })} />
+        {item.tags?.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+            {item.tags.slice(0, 3).map(tag => (
+              <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>{tag}</span>
+            ))}
+            {item.tags.length > 3 && <span style={{ fontSize: 10, color: T.textSubtle }}>+{item.tags.length - 3}</span>}
           </div>
         )}
-      </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: expanded ? 12 : 0, position: "relative" }} onPointerDown={e => e.stopPropagation()}>
-        <div style={{ position: "relative" }}>
-          <SPBadge sp={item.story_points} onClick={() => setShowSP(!showSP)} />
-          {showSP && <SPPicker value={item.story_points} onChange={v => update({ story_points: v })} onClose={() => setShowSP(false)} />}
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color }}>{item.priorite?.valeur}</span>
-        {item.module_suggere && <span style={{ fontSize: 11, color: T.textSubtle }}>· {item.module_suggere}</span>}
-        <span style={{ fontFamily: "monospace", fontSize: 10.5, color: T.textSubtle, letterSpacing: "0.02em" }}>#{toRef(item.id)}</span>
-        <Avatar />
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-          {confirmDelete ? (
-            <>
-              <span style={{ fontSize: 11, color: T.danger, fontWeight: 600 }}>Supprimer ?</span>
-              <button onClick={() => onDelete?.(item.id)} style={{ fontSize: 11, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Oui</button>
-              <button onClick={() => setConfirm(false)} style={{ fontSize: 11, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Non</button>
-            </>
-          ) : (
-            <button onClick={() => setConfirm(true)} title="Supprimer ce ticket" style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textSubtle, display: "flex", alignItems: "center" }}
-              onMouseEnter={e => e.currentTarget.style.color = T.danger}
-              onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}>
-              <Trash2 size={12} />
-            </button>
-          )}
-          <button onClick={() => setExpanded(!expanded)} style={{ fontSize: 11, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
-            {expanded ? "Réduire" : "Plus"} <ChevronDown size={11} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <SPBadge sp={item.story_points} />
+          <span style={{ fontFamily: "monospace", fontSize: 10.5, color: T.textSubtle, letterSpacing: "0.02em" }}>#{toRef(item.id)}</span>
+          <Avatar />
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}>
+            {confirmDelete ? (
+              <>
+                <span style={{ fontSize: 11, color: T.danger, fontWeight: 600 }}>Supprimer ?</span>
+                <button onClick={() => onDelete?.(item.id)} style={{ fontSize: 11, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Oui</button>
+                <button onClick={() => setConfirm(false)} style={{ fontSize: 11, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Non</button>
+              </>
+            ) : (
+              <button onClick={() => setConfirm(true)} title="Supprimer ce ticket" style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textSubtle, display: "flex", alignItems: "center" }}
+                onMouseEnter={e => e.currentTarget.style.color = T.danger}
+                onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}>
+                <Trash2 size={12} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
-
-      {expanded && (
-        <div style={{ borderTop: `1px solid ${T.borderSubtle}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 5 }}>CONTEXTE</div>
-            <InlineEdit value={item.contexte} onChange={v => update({ contexte: v })} multiline style={{ fontSize: 12.5, color: T.textMuted, lineHeight: 1.6 }} placeholder="Décrire le problème observé…" />
-          </div>
-          {item.questions_clarification?.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 5 }}>QUESTIONS À CLARIFIER</div>
-              {item.questions_clarification.map((q, i) => (
-                <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4 }}><HelpCircle size={12} color={T.primary} style={{ flexShrink: 0, marginTop: 2 }} /><span style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5 }}>{q}</span></div>
-              ))}
-            </div>
-          )}
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>PROTOTYPES & VISUELS</div>
-            <PrototypePanel prototypes={item.prototypes || []} onChange={v => update({ prototypes: v })} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 8 }}>COMMENTAIRES</div>
-            <CommentThread commentaires={item.commentaires || []} onChange={v => update({ commentaires: v })} />
-          </div>
-        </div>
-      )}
-
-      {item.ambigu && (
-        <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: T.radiusSm, backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
-          <AlertCircle size={12} color={T.warning} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 11.5, color: "#92400E", lineHeight: 1.5 }}>Besoin à préciser — à valider avec le stakeholder avant d'intégrer au backlog.</span>
-        </div>
-      )}
-      </div>{/* end padding wrapper */}
     </div>
   );
 }
 
-function SortableCard({ item, allItems, onUpdate, onDelete, highlighted, onNavigate, onSelectNode }) {
+function SortableCard({ item, allItems, onDelete, highlighted, onOpenDetail, onSelectNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined };
   return (
     <div ref={setNodeRef} style={style}>
-      <KanbanCard item={item} allItems={allItems} onUpdate={onUpdate} onDelete={onDelete} highlighted={highlighted} onNavigate={onNavigate} onSelectNode={onSelectNode} isDragging={isDragging} dragListeners={listeners} dragAttributes={attributes} />
+      <KanbanCard item={item} allItems={allItems} onDelete={onDelete} highlighted={highlighted} onOpenDetail={onOpenDetail} onSelectNode={onSelectNode} isDragging={isDragging} dragListeners={listeners} dragAttributes={attributes} />
+    </div>
+  );
+}
+
+/* ─── TICKET DETAIL PANEL ────────────────────────────────────── */
+function TicketDetailPanel({ item, allItems, onUpdate, onDelete, onClose, onNavigate, onSelectNode }) {
+  const [local, setLocal]             = useState(item);
+  const [saved, setSaved]             = useState(false);
+  const [acOpen, setAcOpen]           = useState(true);
+  const [showSP, setShowSP]           = useState(false);
+  const [confirmDelete, setConfirm]   = useState(false);
+  const saveTimer = useRef();
+
+  useEffect(() => { setLocal(item); }, [item.id]);
+
+  const update = (patch) => {
+    const next = { ...local, ...patch };
+    setLocal(next);
+    onUpdate(next);
+    clearTimeout(saveTimer.current);
+    setSaved(false);
+    saveTimer.current = setTimeout(() => { setSaved(true); setTimeout(() => setSaved(false), 1500); }, 500);
+  };
+
+  const needsDiscovery = local.ambigu || local.status === "a-clarifier";
+  const parent   = local.parentId ? allItems.find(i => i.id === local.parentId) : null;
+  const children = allItems.filter(i => i.parentId === local.id && EXECUTABLE_TYPES.includes(i.type));
+  const parentCfg = parent ? (TYPE_CFG[parent.type] || TYPE_CFG["User Story"]) : null;
+  const pc = PRIO_CFG[local.priorite?.valeur] || { bg: "#F3F4F6", color: "#6B7280" };
+
+  const navigateTo = (targetId) => {
+    onClose();
+    onNavigate?.(targetId);
+    setTimeout(() => document.getElementById(`card-${targetId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+  };
+
+  const handleParentClick = () => {
+    if (parent && HIERARCHY_TYPES.includes(parent.type)) { onClose(); onSelectNode?.({ id: parent.id, type: parent.type.toLowerCase() }); }
+    else if (parent) navigateTo(parent.id);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", backgroundColor: "rgba(15,15,25,0.25)" }} onClick={onClose}>
+      <div style={{ width: 480, maxWidth: "92vw", height: "100%", backgroundColor: T.card, boxShadow: "-4px 0 24px rgba(0,0,0,.14)", overflow: "auto", padding: "22px 22px 60px", animation: "slideInRight 0.2s ease" }} onClick={e => e.stopPropagation()}>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <TypeBadge type={local.type} />
+            <StatusBadge status={local.status} />
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: T.textSubtle, borderRadius: 6 }}><X size={17} /></button>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <span style={{ fontFamily: "monospace", fontSize: 11.5, color: T.textSubtle }}>#{toRef(local.id)}</span>
+          <Avatar size={22} />
+          {saved && <span style={{ fontSize: 11, color: T.success, fontWeight: 600, marginLeft: "auto" }}>Enregistré ✓</span>}
+        </div>
+
+        {local.potentiel_doublon && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7, backgroundColor: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: T.radiusSm, padding: "7px 10px", marginBottom: 14 }}>
+            <AlertTriangle size={12} color="#D97706" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: "#92400E", flex: 1, lineHeight: 1.4 }}>
+              Doublon {local.potentiel_doublon.niveau} · <em>"{local.potentiel_doublon.titre}"</em>
+            </span>
+            <button onClick={() => navigateTo(local.potentiel_doublon.id)} style={{ fontSize: 10.5, color: "#D97706", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, flexShrink: 0 }}>Voir →</button>
+          </div>
+        )}
+
+        {parent && (
+          <button onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : "Aller au parent"} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: parentCfg.bg, color: parentCfg.color, border: `1px solid ${parentCfg.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: 8 }}>
+            ↑ {parent.type} · <span style={{ fontFamily: "monospace", letterSpacing: "0.04em" }}>#{toRef(parent.id)}</span>
+          </button>
+        )}
+
+        {children.length > 0 && (
+          <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>
+            {children.map(c => {
+              const cc = TYPE_CFG[c.type] || TYPE_CFG["User Story"];
+              return <button key={c.id} onClick={() => navigateTo(c.id)} style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: cc.bg, color: cc.color, border: `1px solid ${cc.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>↓ {c.type} · <span style={{ fontFamily: "monospace" }}>#{toRef(c.id)}</span></button>;
+            })}
+          </div>
+        )}
+
+        <div style={{ marginBottom: 14 }}>
+          <InlineEdit value={local.titre} onChange={v => update({ titre: v })} multiline style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.5 }} />
+        </div>
+
+        {local.tags?.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 14 }}>
+            {local.tags.map(tag => (
+              <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>{tag}</span>
+            ))}
+          </div>
+        )}
+
+        {needsDiscovery ? (
+          <div style={{ backgroundColor: "#FFFBF5", border: "1px solid #FED7AA", borderRadius: T.radiusSm, padding: "10px", marginBottom: 12 }}>
+            {local.questions_clarification?.length > 0 && (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 5 }}>SPÉCIFIQUES À CE TICKET</div>
+                {local.questions_clarification.map((q, i) => (
+                  <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4, alignItems: "flex-start" }}>
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#EA580C", flexShrink: 0, marginTop: 6, opacity: 0.7 }} />
+                    <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
+                  </div>
+                ))}
+                <div style={{ height: 1, backgroundColor: "#FED7AA", margin: "8px 0" }} />
+              </>
+            )}
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 6 }}>QUESTIONS DE CADRAGE</div>
+            {DISCOVERY_QUESTIONS.map(({ Icon, label, q }, i) => (
+              <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
+                <Icon size={11} color="#EA580C" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
+                <div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#EA580C" }}>{label} — </span>
+                  <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : local.questions_clarification?.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 5 }}>QUESTIONS À CLARIFIER</div>
+            {local.questions_clarification.map((q, i) => (
+              <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4 }}><HelpCircle size={12} color={T.primary} style={{ flexShrink: 0, marginTop: 2 }} /><span style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5 }}>{q}</span></div>
+            ))}
+          </div>
+        )}
+
+        {needsDiscovery && (
+          <div style={{ backgroundColor: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: T.radiusSm, padding: "10px", marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#0369A1", letterSpacing: "0.05em", marginBottom: 6 }}>À ÉVALUER AVEC L'ÉQUIPE TECH</div>
+            {TECHNICAL_QUESTIONS.map(({ Icon, label, q }, i) => (
+              <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
+                <Icon size={11} color="#0284C7" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
+                <div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#0369A1" }}>{label} — </span>
+                  <span style={{ fontSize: 11.5, color: "#0C4A6E", lineHeight: 1.5 }}>{q}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {local.rice && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: T.radiusSm, padding: "7px 10px", marginBottom: 12 }}>
+            <Zap size={12} color="#15803D" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: "#15803D" }}>RICE {local.rice.score}</span>
+            <span style={{ fontSize: 11, color: "#166534", opacity: 0.85 }}>
+              R:{local.rice.reach >= 1000 ? `${(local.rice.reach/1000).toFixed(0)}k` : local.rice.reach}
+              {" · "}×{local.rice.impact}
+              {" · "}{Math.round(local.rice.confidence * 100)}%
+              {" · "}{local.rice.effort}w
+            </span>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 6, alignItems: "flex-start", backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: "8px 10px", marginBottom: 14 }}>
+          <Target size={13} color={T.success} style={{ flexShrink: 0, marginTop: 2 }} />
+          <InlineEdit value={local.valeur_metier} onChange={v => update({ valeur_metier: v })} multiline placeholder="Valeur métier attendue…" style={{ fontSize: 12.5, color: "#15803D", lineHeight: 1.5 }} />
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>PROTOTYPES & VISUELS</div>
+          <PrototypePanel prototypes={local.prototypes || []} onChange={v => update({ prototypes: v })} />
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <button onClick={() => setAcOpen(!acOpen)} style={{ display: "flex", alignItems: "center", gap: 5, width: "100%", background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "inherit" }}>
+            <ListChecks size={13} color={T.textSubtle} />
+            <span style={{ fontSize: 11.5, color: T.textSubtle, fontWeight: 600, letterSpacing: "0.04em" }}>CRITÈRES D'ACCEPTATION</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 4, padding: "0 6px" }}>{local.criteres_acceptation?.length || 0}</span>
+            <ChevronDown size={12} color={T.textSubtle} style={{ marginLeft: "auto", transform: acOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+          </button>
+          {acOpen && (
+            <div style={{ marginTop: 6 }}>
+              <ACEditor criteres={local.criteres_acceptation || []} onChange={v => update({ criteres_acceptation: v })} />
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 16, position: "relative" }}>
+          <div style={{ position: "relative" }}>
+            <SPBadge sp={local.story_points} onClick={() => setShowSP(!showSP)} />
+            {showSP && <SPPicker value={local.story_points} onChange={v => update({ story_points: v })} onClose={() => setShowSP(false)} />}
+          </div>
+          {local.priorite?.valeur && <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color }}>{local.priorite.valeur}</span>}
+          {local.module_suggere && <span style={{ fontSize: 11, color: T.textSubtle }}>· {local.module_suggere}</span>}
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>CONTEXTE</div>
+          <InlineEdit value={local.contexte} onChange={v => update({ contexte: v })} multiline style={{ fontSize: 12.5, color: T.textMuted, lineHeight: 1.6 }} placeholder="Décrire le problème observé…" />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 8 }}>COMMENTAIRES</div>
+          <CommentThread commentaires={local.commentaires || []} onChange={v => update({ commentaires: v })} />
+        </div>
+
+        {local.ambigu && (
+          <div style={{ marginBottom: 16, padding: "8px 10px", borderRadius: T.radiusSm, backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
+            <AlertCircle size={13} color={T.warning} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontSize: 11.5, color: "#92400E", lineHeight: 1.5 }}>Besoin à préciser — à valider avec le stakeholder avant d'intégrer au backlog.</span>
+          </div>
+        )}
+
+        <div style={{ borderTop: `1px solid ${T.borderSubtle}`, paddingTop: 14 }}>
+          {confirmDelete ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12.5, color: T.danger, fontWeight: 600 }}>Supprimer ce ticket ?</span>
+              <button onClick={() => { onDelete?.(local.id); onClose(); }} style={{ fontSize: 12, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>Oui, supprimer</button>
+              <button onClick={() => setConfirm(false)} style={{ fontSize: 12, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>Annuler</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirm(true)} style={{ display: "flex", alignItems: "center", gap: 6, color: T.danger, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, padding: 0 }}>
+              <Trash2 size={13} /> Supprimer ce ticket
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1056,7 +1091,7 @@ function SprintSettingsPanel({ sprint, onSave, onClose }) {
   );
 }
 
-function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highlightedId, onNavigate, onSelectNode, isMobile = false }) {
+function KanbanColumn({ statusKey, items, allItems, onDelete, highlightedId, onOpenDetail, onSelectNode, isMobile = false }) {
   const cfg = STATUS_CFG[statusKey];
   const { setNodeRef, isOver } = useDroppable({ id: statusKey });
   return (
@@ -1070,7 +1105,7 @@ function KanbanColumn({ statusKey, items, allItems, onUpdate, onDelete, highligh
       <div ref={setNodeRef} style={{ flex: 1, minHeight: 80, borderRadius: T.radius, backgroundColor: isOver ? T.primaryLight : (items.length === 0 ? "#FAFAFD" : "transparent"), border: isOver ? `1.5px dashed ${T.primary}` : (items.length === 0 ? `1.5px dashed ${T.border}` : "none"), display: "flex", flexDirection: "column", justifyContent: items.length === 0 ? "center" : "flex-start", padding: items.length === 0 ? 12 : 0, transition: "background 0.15s" }}>
         {items.length === 0 && <p style={{ textAlign: "center", fontSize: 12, color: T.textSubtle, margin: 0 }}>Déposer ici</p>}
         <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-          {items.map(item => <SortableCard key={item.id} item={item} allItems={allItems} onUpdate={onUpdate} onDelete={onDelete} highlighted={highlightedId === item.id} onNavigate={onNavigate} onSelectNode={onSelectNode} />)}
+          {items.map(item => <SortableCard key={item.id} item={item} allItems={allItems} onDelete={onDelete} highlighted={highlightedId === item.id} onOpenDetail={onOpenDetail} onSelectNode={onSelectNode} />)}
         </SortableContext>
       </div>
     </div>
@@ -1083,6 +1118,7 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
   const [showExport, setShowExport]         = useState(false);
   const [sprint, setSprint]                 = useState(loadSprint);
   const [showSprintSettings, setShowSprint] = useState(false);
+  const [detailItem, setDetailItem]         = useState(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -1236,14 +1272,26 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", ...(isMobile ? { overflowX: "auto", paddingBottom: 12, WebkitOverflowScrolling: "touch" } : {}) }}>
           {COLUMNS.map(col => {
             const colItems = items.filter(i => i.status === col).sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
-            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onUpdate={updateItem} onDelete={deleteItem} highlightedId={highlightedId} onNavigate={onNavigate} onSelectNode={onSelectNode} isMobile={isMobile} />;
+            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onDelete={deleteItem} highlightedId={highlightedId} onOpenDetail={setDetailItem} onSelectNode={onSelectNode} isMobile={isMobile} />;
           })}
         </div>
-        <DragOverlay>{activeItem && <KanbanCard item={activeItem} allItems={allItems} onUpdate={() => {}} isDragging />}</DragOverlay>
+        <DragOverlay>{activeItem && <KanbanCard item={activeItem} allItems={allItems} isDragging />}</DragOverlay>
       </DndContext>
 
       {showSprintSettings && (
         <SprintSettingsPanel sprint={sprint} onSave={updateSprint} onClose={() => setShowSprint(false)} />
+      )}
+
+      {detailItem && (
+        <TicketDetailPanel
+          item={detailItem}
+          allItems={allItems}
+          onUpdate={(updated) => { updateItem(updated); setDetailItem(updated); }}
+          onDelete={(id) => { deleteItem(id); setDetailItem(null); }}
+          onClose={() => setDetailItem(null)}
+          onNavigate={onNavigate}
+          onSelectNode={onSelectNode}
+        />
       )}
     </div>
   );
