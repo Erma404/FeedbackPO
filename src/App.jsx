@@ -1843,7 +1843,7 @@ function ThemeCard({ theme, feedbackItems, framework = "MoSCoW", onOpenDetail, o
   const extra = feedbackItems.length - visibleFeedback.length;
   const estimate = theme.status === "pousse-backlog" ? null : estimateThemePriority(feedbackItems.length, framework);
   const pc = estimate?.framework === "MoSCoW" ? (PRIO_CFG[estimate.label] || { bg: "#F3F4F6", color: "#6B7280" }) : null;
-  const sources = [...new Set(feedbackItems.map(f => f.source).filter(Boolean))];
+  const sources = [...new Set(feedbackItems.map(f => f.source || "Autre"))];
 
   return (
     <div onClick={() => onOpenDetail?.(theme)} style={{ backgroundColor: T.card, borderRadius: T.radius, boxShadow: isDragging ? T.shadowMd : T.shadow, border: `1px solid ${T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, overflow: "hidden", cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s" }}>
@@ -2004,7 +2004,7 @@ function ThemeGroupedView({ themes, feedbackInbox, framework, onOpenDetail, onPu
   const [filter, setFilter]       = useState(null);
   const [sourceFilter, setSource] = useState(null);
 
-  const themeSources = (theme) => [...new Set(feedbackInbox.filter(f => theme.feedbackIds.includes(f.id)).map(f => f.source).filter(Boolean))];
+  const themeSources = (theme) => [...new Set(feedbackInbox.filter(f => theme.feedbackIds.includes(f.id)).map(f => f.source || "Autre"))];
 
   const filtered = themes
     .filter(t => !filter || t.status === filter)
@@ -2056,7 +2056,7 @@ function ThemeGroupedView({ themes, feedbackInbox, framework, onOpenDetail, onPu
 function ThemeDetailPanel({ theme, feedbackItems, onUpdate, onDelete, onPush, pushing, onGoToBacklogItem, onClose }) {
   const [confirmDelete, setConfirm] = useState(false);
   const cfg = THEME_STATUS_CFG[theme.status] || THEME_STATUS_CFG["nouveau-signal"];
-  const sources = [...new Set(feedbackItems.map(f => f.source).filter(Boolean))];
+  const sources = [...new Set(feedbackItems.map(f => f.source || "Autre"))];
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", backgroundColor: "rgba(15,15,25,0.25)" }} onClick={onClose}>
@@ -2091,12 +2091,11 @@ function ThemeDetailPanel({ theme, feedbackItems, onUpdate, onDelete, onPush, pu
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
           {feedbackItems.map(fb => {
-            const scfg = fb.source ? (SOURCE_CFG[fb.source] || SOURCE_CFG["Autre"]) : null;
+            const src  = fb.source || "Autre";
+            const scfg = SOURCE_CFG[src] || SOURCE_CFG["Autre"];
             return (
               <div key={fb.id} style={{ backgroundColor: "#FAFAFD", border: `1px solid ${T.borderSubtle}`, borderRadius: T.radiusSm, padding: "10px 12px" }}>
-                {scfg && (
-                  <span style={{ display: "inline-block", fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}`, marginBottom: 6 }}>{fb.source}</span>
-                )}
+                <span style={{ display: "inline-block", fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}`, marginBottom: 6 }}>{src}</span>
                 <div style={{ fontSize: 12.5, color: T.text, lineHeight: 1.55, marginBottom: 6 }}>{fb.texte}</div>
                 {fb.painPoint && <div style={{ fontSize: 11.5, color: T.primary, fontWeight: 600 }}>→ {fb.painPoint}</div>}
               </div>
