@@ -8,11 +8,12 @@ import {
   SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import pptxgen from "pptxgenjs";
 import {
-  Zap, Clock, Settings2, Download, Loader2, CheckCheck,
+  Zap, Settings2, Download, Loader2, CheckCheck,
   AlertCircle, Sparkles, ListChecks, HelpCircle, BookOpen,
   ArrowRight, RefreshCw, ChevronRight, BarChart2, Plus, ChevronDown,
-  Timer, Repeat2, FileText, Eye, Key, Bell, Sliders, Calendar,
+  Timer, Repeat2, FileText, Key, Bell, Sliders,
   Layers, Target, X, Check,
   GripVertical, AlertTriangle, Users, Link, Upload,
   Layout, Pencil, Copy, Bug, Lightbulb, Trash2,
@@ -55,7 +56,7 @@ const STATUS_CFG = {
   "en-affinage":    { label: "En affinage",    color: "#A16207", bg: "#FEFCE8", border: "#FDE68A", dot: "#EAB308" },
   "pret-pour-dev":  { label: "Sprint en cours",color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0", dot: "#22C55E" },
   "prochain-sprint":{ label: "Prochain sprint",color: "#6D28D9", bg: "#F5F3FF", border: "#DDD6FE", dot: "#8B5CF6" },
-  "exporte":        { label: "Exporté",         color: "#4338CA", bg: "#EEEEFF", border: "#C7C8F5", dot: "#6366F1" },
+  "exporte":        { label: "Sprint précédent",color: "#4338CA", bg: "#EEEEFF", border: "#C7C8F5", dot: "#6366F1" },
 };
 
 const COMMENT_TYPES = {
@@ -157,40 +158,13 @@ const loadSprint = () => {
 };
 const saveSprint = (s) => { try { localStorage.setItem(SPRINT_KEY, JSON.stringify(s)); } catch {} };
 
-/* ─── HISTORY PERSISTENCE ────────────────────────────────────── */
-const HISTORY_KEY = "feedbackpo_history";
-
-const saveToHistory = (feedbackText, items, framework, durationSec) => {
-  const entry = {
-    id: makeId(),
-    date: new Date().toISOString(),
-    apercu: feedbackText.slice(0, 160) + (feedbackText.length > 160 ? "…" : ""),
-    items: items.length,
-    framework,
-    duree: `${durationSec}s`,
-    types: [...new Set(items.map(i => i.type))],
-    tags: [...new Set(items.flatMap(i => i.tags || []))].slice(0, 5),
-    savedItems: items,
-  };
-  try {
-    const prev = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    localStorage.setItem(HISTORY_KEY, JSON.stringify([entry, ...prev].slice(0, 50)));
-  } catch {}
+/* ─── BACKLOG PERSISTENCE ────────────────────────────────────── */
+const BACKLOG_KEY = "feedbackpo_backlog";
+const loadBacklog = () => {
+  try { const raw = localStorage.getItem(BACKLOG_KEY); return raw === null ? MOCK_KANBAN : JSON.parse(raw); }
+  catch { return MOCK_KANBAN; }
 };
-
-const loadHistory = () => {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
-};
-
-const formatHistoryDate = (iso) => {
-  const d    = new Date(iso);
-  const diff = (Date.now() - d) / 1000;
-  const hm   = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  if (diff < 3600)   return `Il y a ${Math.round(diff / 60)} min`;
-  if (diff < 86400)  return `Aujourd'hui, ${hm}`;
-  if (diff < 172800) return `Hier, ${hm}`;
-  return `${d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, ${hm}`;
-};
+const saveBacklog = (backlog) => { try { localStorage.setItem(BACKLOG_KEY, JSON.stringify(backlog)); } catch {} };
 
 const exportAsCSV = (backlog) => {
   const headers = ["Ref","Type","Titre","Priorité","P","Statut","SP","Module","Valeur métier","Doublons","Tags"];
@@ -208,60 +182,6 @@ const exportAsCSV = (backlog) => {
   ]);
   return [headers, ...rows].map(r => r.join(";")).join("\n");
 };
-
-/* ─── SYSTEM PROMPT ─────────────────────────────────────────── */
-const SYSTEM_PROMPT = `Tu es un expert Product Owner senior. Tu transformes des feedbacks bruts en éléments de backlog structurés.
-IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant/après, sans backticks markdown.
-
-Hiérarchie : Epic → Feature → User Story / Bug / Spike.
-- Feature : parentId = id de l'Epic parent.
-- User Story, Bug, Spike : parentId = id de la Feature parente.
-- Epic : parentId = null.
-- Bug : un défaut constaté ou comportement inattendu.
-- Spike : investigation time-boxée (préfixe "[SPIKE]" dans le titre).
-
-Format JSON exact:
-{
-  "items": [{
-    "id": "item-1",
-    "type": "Epic | Feature | User Story | Bug | Spike",
-    "parentId": null,
-    "titre": "titre de l'item",
-    "contexte": "Problème observé en 1-2 phrases",
-    "valeur_metier": "Bénéfice attendu, chiffré si possible",
-    "criteres_acceptation": ["CA1","CA2"],
-    "story_points": null,
-    "priorite": { "framework":"MoSCoW","valeur":"Must Have","justification":"..." },
-    "rice": null,
-    "tags": [],
-    "module_suggere": "...",
-    "questions_clarification": ["Q1 ?"],
-    "potentiel_doublon": null,
-    "ambigu": false
-  }]
-}
-
-Règles générales:
-- Génère 1-4 items dans l'ordre Epic → Feature → US/Bug/Spike
-- valeur_metier : toujours tenter de le quantifier (ex: "économise 2h/sem × 50 users")
-- story_points : laisser null
-- 2-4 critères d'acceptation minimum
-
-Tags fonctionnels (champ "tags") :
-- Toujours renseigner 2 à 5 tags parmi : UX, Performance, Mobile, Sécurité, API, Onboarding, Reporting, Notification, Export, Authentification, Paiement, Data, Accessibilité, Recherche, Intégration, Dashboard, Admin, Offline
-
-Scoring RICE (si framework="RICE" — s'applique à User Story et Feature, pas Epic) :
-- rice.reach     : nb d'utilisateurs touchés sur 3 mois (entier)
-- rice.impact    : 1=minimal, 2=moyen, 3=fort, 5=massif
-- rice.confidence: certitude estimée entre 0.1 et 1.0
-- rice.effort    : effort en semaines-développeur (nombre décimal)
-- rice.score     : arrondi(reach × impact × confidence / effort)
-- Pour les Epics et si framework≠RICE : laisser rice: null
-
-Détection de doublons (si backlog existant fourni) :
-- Comparer chaque item généré aux items existants fournis après le feedback
-- Si similitude sémantique haute ou moyenne : potentiel_doublon: { "id": "id-existant", "titre": "titre court ≤50 chars", "niveau": "haute" | "moyenne" }
-- Si aucun doublon : potentiel_doublon: null`;
 
 /* ─── UTILS ─────────────────────────────────────────────────── */
 const shortTitle = (titre) => {
@@ -419,45 +339,6 @@ const MOCK_KANBAN = [
   },
 ];
 
-const MOCK_HISTORY = [
-  {
-    id: "h1", date: "Aujourd'hui, 14h32", projet: "Kantara",
-    apercu: "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel...",
-    items: 7, framework: "MoSCoW", types: ["Epic", "Feature", "User Story", "Bug", "Spike"], duree: "8s",
-    tags: ["export", "reporting", "adoption"], mockItems: MOCK_KANBAN,
-  },
-  {
-    id: "h2", date: "Hier, 09h15", projet: "Nexio",
-    apercu: "Retour de la démo client : les élus veulent pouvoir publier des actualités depuis leur mobile...",
-    items: 3, framework: "RICE", types: ["Feature", "User Story"], duree: "6s",
-    tags: ["mobile", "publication", "accessibilité"], mockItems: [],
-  },
-  {
-    id: "h3", date: "13 juin, 16h50", projet: "Pathline",
-    apercu: "L'équipe design a remonté que le flow d'onboarding est trop long — abandon à l'étape 3 sur 7...",
-    items: 4, framework: "Valeur-Effort", types: ["Feature", "User Story", "Bug"], duree: "11s",
-    tags: ["onboarding", "rétention", "UX"], mockItems: [],
-  },
-  {
-    id: "h4", date: "12 juin, 11h20", projet: "Kantara",
-    apercu: "Le support remonte 12 tickets cette semaine sur la recherche — contrats archivés introuvables...",
-    items: 2, framework: "MoSCoW", types: ["Feature", "Bug"], duree: "5s",
-    tags: ["recherche", "archives", "support"], mockItems: [],
-  },
-  {
-    id: "h5", date: "10 juin, 15h05", projet: "Nexio",
-    apercu: "CR de réunion DSI : ils veulent une API publique pour connecter leur GED existante...",
-    items: 3, framework: "RICE", types: ["Epic", "Feature", "Spike"], duree: "9s",
-    tags: ["API", "intégration", "DSI"], mockItems: [],
-  },
-  {
-    id: "h6", date: "09 juin, 08h45", projet: "Pathline",
-    apercu: "Note vocale Sales : les prospects demandent un mode hors-ligne pour les zones blanches...",
-    items: 2, framework: "MoSCoW", types: ["Feature", "User Story"], duree: "7s",
-    tags: ["offline", "mobile", "prospect"], mockItems: [],
-  },
-];
-
 const RAPPORT_STATS = {
   feedbacks: 23, items: 67, reutilisation: 71, tempsSave: 4.2,
   parType: { Epic: 8, Feature: 19, "User Story": 28, Bug: 7, Spike: 5 },
@@ -507,23 +388,6 @@ function Avatar({ initials = "EM", size = 20 }) {
     <span title="Ernestine Matjabo" style={{ width: size, height: size, borderRadius: "50%", background: T.gradient, color: "#fff", fontSize: size * 0.42, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "1.5px solid #fff", boxShadow: "0 0 0 1px " + T.border, letterSpacing: "-0.02em" }}>
       {initials}
     </span>
-  );
-}
-
-function PillGroup({ name, options, value, onChange }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {options.map(({ v, label, sub }) => (
-        <label key={v} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: T.radiusSm, cursor: "pointer", backgroundColor: value === v ? T.primaryLight : "transparent", border: `1.5px solid ${value === v ? T.primaryMid : "transparent"}`, transition: T.transition }}>
-          <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${value === v ? T.primary : "#D1D5DB"}`, backgroundColor: value === v ? T.primary : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {value === v && <div style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#fff" }} />}
-          </div>
-          <input type="radio" name={name} checked={value === v} onChange={() => onChange(v)} style={{ display: "none" }} />
-          <span style={{ fontSize: 12.5, color: value === v ? T.primary : T.text, fontWeight: value === v ? 600 : 400, flex: 1 }}>{label}</span>
-          {sub && <span style={{ fontSize: 11, color: T.textSubtle }}>{sub}</span>}
-        </label>
-      ))}
-    </div>
   );
 }
 
@@ -805,6 +669,8 @@ function TicketDetailPanel({ item, allItems, onUpdate, onDelete, onClose, onNavi
   const [acOpen, setAcOpen]           = useState(true);
   const [showSP, setShowSP]           = useState(false);
   const [confirmDelete, setConfirm]   = useState(false);
+  const [clarifying, setClarifying]   = useState(false);
+  const [clarifyNote, setClarifyNote] = useState("");
   const saveTimer = useRef();
 
   useEffect(() => { setLocal(item); }, [item.id]);
@@ -816,6 +682,22 @@ function TicketDetailPanel({ item, allItems, onUpdate, onDelete, onClose, onNavi
     clearTimeout(saveTimer.current);
     setSaved(false);
     saveTimer.current = setTimeout(() => { setSaved(true); setTimeout(() => setSaved(false), 1500); }, 500);
+  };
+
+  const handleClarify = () => {
+    if (!clarifyNote.trim()) return;
+    const pendingQs = local.questions_clarification || [];
+    const texte = pendingQs.length
+      ? `${clarifyNote.trim()}\n\nQuestions traitées : ${pendingQs.join(" · ")}`
+      : clarifyNote.trim();
+    update({
+      status: "en-affinage",
+      ambigu: false,
+      questions_clarification: [],
+      commentaires: [...(local.commentaires || []), { id: makeId(), type: "decision", texte, date: "À l'instant" }],
+    });
+    setClarifying(false);
+    setClarifyNote("");
   };
 
   const needsDiscovery = local.ambigu || local.status === "a-clarifier";
@@ -936,6 +818,31 @@ function TicketDetailPanel({ item, allItems, onUpdate, onDelete, onClose, onNavi
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {needsDiscovery && (
+          <div style={{ marginBottom: 14 }}>
+            {clarifying ? (
+              <div style={{ backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#15803D", marginBottom: 6 }}>Résumé de la clarification (daily)</div>
+                <textarea autoFocus value={clarifyNote} onChange={e => setClarifyNote(e.target.value)}
+                  placeholder="Ce qui a été décidé avec l'équipe : réponses aux questions, choix technique, périmètre retenu…"
+                  style={{ width: "100%", minHeight: 60, fontSize: 12.5, fontFamily: "inherit", color: T.text, border: `1px solid ${T.successBorder}`, borderRadius: 6, padding: "6px 8px", resize: "vertical", boxSizing: "border-box", marginBottom: 8 }} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={handleClarify} disabled={!clarifyNote.trim()} style={{ flex: 1, padding: "7px 0", border: "none", borderRadius: 6, backgroundColor: clarifyNote.trim() ? T.success : "#A7D8B8", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: clarifyNote.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+                    Confirmer et passer en affinage
+                  </button>
+                  <button onClick={() => { setClarifying(false); setClarifyNote(""); }} style={{ padding: "7px 12px", border: `1px solid ${T.border}`, borderRadius: 6, backgroundColor: "#fff", color: T.textMuted, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setClarifying(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 0", border: `1px dashed ${T.successBorder}`, borderRadius: T.radiusSm, backgroundColor: "transparent", color: "#15803D", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                <CheckCheck size={14} /> Marquer comme clarifié
+              </button>
+            )}
           </div>
         )}
 
@@ -1518,54 +1425,882 @@ function DemoBanner() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, borderRadius: T.radiusSm, padding: "8px 14px", marginBottom: 20 }}>
       <AlertCircle size={14} color={T.warning} style={{ flexShrink: 0 }} />
-      <span style={{ fontSize: 12.5, color: "#A16207" }}><strong style={{ color: "#92400E" }}>Données de démonstration</strong> — Connecte ton historique pour voir tes statistiques réelles.</span>
+      <span style={{ fontSize: 12.5, color: "#A16207" }}><strong style={{ color: "#92400E" }}>Données de démonstration</strong> — analyse des feedbacks réels pour voir tes statistiques.</span>
+    </div>
+  );
+}
+
+/* ─── THÈMES : source du feedback (traçabilité par origine) ──── */
+const SOURCE_CFG = {
+  "App Store":  { color: "#0369A1", bg: "#F0F9FF", border: "#BAE6FD" },
+  "Play Store": { color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
+  "Sales":      { color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" },
+  "Support":    { color: "#C2410C", bg: "#FFF4ED", border: "#FED7AA" },
+  "Autre":      { color: "#6B7280", bg: "#F3F4F6", border: "#E5E7EB" },
+};
+const FEEDBACK_SOURCES = Object.keys(SOURCE_CFG);
+
+/* ─── THÈMES : pipeline d'analyse avant passage au backlog ──── */
+const THEME_PIPELINE = ["nouveau-signal", "en-consolidation", "valide", "pousse-backlog"];
+
+const THEME_STATUS_CFG = {
+  "nouveau-signal":   { label: "Nouveau signal",     color: "#C2410C", bg: "#FFF4ED", border: "#FED7AA", dot: "#F97316" },
+  "en-consolidation": { label: "En consolidation",    color: "#A16207", bg: "#FEFCE8", border: "#FDE68A", dot: "#EAB308" },
+  "valide":           { label: "Validé (prêt)",       color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0", dot: "#22C55E" },
+  "pousse-backlog":   { label: "Poussé au backlog",   color: "#4338CA", bg: "#EEEEFF", border: "#C7C8F5", dot: "#6366F1" },
+};
+
+const THEME_CLUSTER_PROMPT = `Tu es un expert Product Owner senior. Tu analyses un feedback brut isolé et tu le rattaches à une thématique (pain point récurrent).
+IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant/après, sans backticks markdown.
+
+Ta mission :
+1. Extraire le pain point en 1 phrase courte et actionnable (ce que l'utilisateur ne peut pas faire, ou ce qui lui coûte du temps ou de l'argent).
+2. Comparer ce pain point aux thèmes existants fournis en contexte (s'il y en a).
+3. Décider : rattachement à un thème existant (similarité sémantique haute) OU création d'un nouveau thème.
+
+Format JSON exact:
+{
+  "pain_point": "Description courte du problème observé, 1 phrase",
+  "theme_match": {
+    "id": "id-du-theme-existant-ou-null",
+    "titre_theme": "Titre court du thème (nouveau ou existant), 6 mots max",
+    "est_nouveau": true,
+    "confiance": "haute" | "moyenne" | "faible"
+  },
+  "tags": ["tag1", "tag2"]
+}
+
+Règles :
+- "theme_match.id" : id exact d'un thème existant fourni en contexte si rattachement, sinon null.
+- "theme_match.est_nouveau" : true si aucun thème existant n'atteint une similarité au moins moyenne.
+- "theme_match.titre_theme" : si rattachement à un thème existant, reprendre son titre à l'identique.
+- "tags" : 1 à 4 tags parmi la liste : UX, Performance, Mobile, Sécurité, API, Onboarding, Reporting, Notification, Export, Authentification, Paiement, Data, Accessibilité, Recherche, Intégration, Dashboard, Admin, Offline
+- Ne jamais rattacher à un thème dont le statut fourni est "pousse-backlog" (déjà traité) — proposer un nouveau thème dans ce cas.`;
+
+const THEME_TO_BACKLOG_PROMPT = `Tu es un expert Product Owner senior. Tu synthétises un ensemble de feedbacks regroupés sous un même thème en UN backlog structuré et cohérent.
+IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant/après, sans backticks markdown.
+
+Contexte : plusieurs feedbacks distincts pointent vers le même pain point. Ta mission est de produire UNE seule synthèse hiérarchique — pas un item par feedback.
+
+Hiérarchie : Epic → Feature → User Story / Bug / Spike.
+- Génère exactement 1 item racine (Epic ou Feature selon l'ampleur du thème).
+- IMPÉRATIF : la racine doit avoir AU MOINS 1 enfant de type User Story, Bug ou Spike (exécutable), et jusqu'à 4 maximum — même pour un thème avec un seul feedback ou un pain point simple. Ne jamais renvoyer un item racine seul sans enfant exécutable : un ticket qu'on ne peut pas exécuter n'a aucune valeur.
+- Feature : parentId = id de l'Epic parent (si un Epic est généré).
+- User Story, Bug, Spike : parentId = id de la Feature parente, ou directement de la racine si aucune Feature intermédiaire n'est générée.
+- Racine : parentId = null.
+- Bug : un défaut constaté ou comportement inattendu.
+- Spike : investigation time-boxée (préfixe "[SPIKE]" dans le titre).
+
+Format JSON exact:
+{
+  "items": [{
+    "id": "item-1",
+    "type": "Epic | Feature | User Story | Bug | Spike",
+    "parentId": null,
+    "titre": "titre de l'item",
+    "contexte": "Synthèse du pain point observé à travers les feedbacks, en 1-2 phrases",
+    "valeur_metier": "Bénéfice attendu, chiffré si possible",
+    "criteres_acceptation": ["CA1","CA2"],
+    "story_points": null,
+    "priorite": { "framework":"MoSCoW","valeur":"Must Have","justification":"..." },
+    "rice": null,
+    "tags": [],
+    "module_suggere": "...",
+    "questions_clarification": ["Q1 ?"],
+    "potentiel_doublon": null,
+    "ambigu": false
+  }]
+}
+
+Règles générales:
+- Consolide, ne duplique pas : un même pain point mentionné 5 fois donne 1 item, pas 5.
+- valeur_metier : quantifier en tenant compte du nombre de feedbacks reçus (ex: "remonté par 4 utilisateurs, économise...")
+- story_points : laisser null
+- 2-4 critères d'acceptation minimum, formulés pour couvrir l'ensemble des cas remontés
+
+Tags fonctionnels (champ "tags") :
+- Toujours renseigner 2 à 5 tags parmi : UX, Performance, Mobile, Sécurité, API, Onboarding, Reporting, Notification, Export, Authentification, Paiement, Data, Accessibilité, Recherche, Intégration, Dashboard, Admin, Offline
+
+Scoring RICE (si framework="RICE") :
+- rice.reach     : nb d'utilisateurs touchés sur 3 mois (entier) — utiliser le nombre de feedbacks distincts comme signal de reach
+- rice.impact    : 1=minimal, 2=moyen, 3=fort, 5=massif
+- rice.confidence: certitude estimée entre 0.1 et 1.0
+- rice.effort    : effort en semaines-développeur (nombre décimal)
+- rice.score     : arrondi(reach × impact × confidence / effort)
+- Si framework≠RICE : laisser rice: null
+
+Détection de doublons (si backlog existant fourni) :
+- Comparer chaque item généré aux items existants fournis après les feedbacks
+- Si similitude sémantique haute ou moyenne : potentiel_doublon: { "id": "id-existant", "titre": "titre court ≤50 chars", "niveau": "haute" | "moyenne" }
+- Si aucun doublon : potentiel_doublon: null`;
+
+/* ─── THÈMES : mock data ─────────────────────────────────────── */
+const MOCK_INBOX = [
+  { id: "fb1", date: "2026-07-20T09:12:00.000Z", texte: "Un commercial m'a dit qu'il avait raté la réponse d'un prospect chaud pendant 2 jours parce qu'il n'a aucune notification sur son téléphone quand un client répond.", apercu: "Un commercial m'a dit qu'il avait raté la réponse d'un prospect chaud pendant 2 jours parce qu'il n'a aucune notification…", painPoint: "Aucune alerte mobile quand un client répond — risque de perdre des opportunités chaudes.", tags: ["Mobile", "Notification"], themeId: "th1", source: "Sales" },
+  { id: "fb2", date: "2026-07-18T14:30:00.000Z", texte: "Le support remonte encore 3 tickets cette semaine sur des contrats introuvables dans les archives.", apercu: "Le support remonte encore 3 tickets cette semaine sur des contrats introuvables dans les archives.", painPoint: "Contrats archivés introuvables via la recherche actuelle.", tags: ["Recherche"], themeId: "th2", source: "Support" },
+  { id: "fb3", date: "2026-07-19T11:05:00.000Z", texte: "Une cliente a mis 20 minutes au téléphone à essayer de retrouver un contrat de 2023 avec notre support.", apercu: "Une cliente a mis 20 minutes au téléphone à essayer de retrouver un contrat de 2023 avec notre support.", painPoint: "Recherche d'archives trop lente, mauvaise expérience client.", tags: ["Recherche", "Data"], themeId: "th2", source: "Support" },
+  { id: "fb4", date: "2026-07-10T08:40:00.000Z", texte: "Les commerciaux terrain n'ont pas accès aux dashboards en mobilité, ils doivent attendre d'être au bureau pour voir leurs chiffres.", apercu: "Les commerciaux terrain n'ont pas accès aux dashboards en mobilité, ils doivent attendre d'être au bureau pour voir…", painPoint: "Aucune consultation des KPIs en mobilité pour les équipes terrain.", tags: ["Mobile", "Dashboard"], themeId: "th3", source: "Sales" },
+  { id: "fb5", date: "2026-07-12T16:20:00.000Z", texte: "Un manager régional a demandé si on pouvait au moins consulter le CA du mois depuis son téléphone entre deux rendez-vous.", apercu: "Un manager régional a demandé si on pouvait au moins consulter le CA du mois depuis son téléphone entre deux…", painPoint: "Besoin de consulter les indicateurs clés en déplacement.", tags: ["Mobile", "Dashboard"], themeId: "th3", source: "Sales" },
+  { id: "fb6", date: "2026-07-15T10:00:00.000Z", texte: "Retour de 2 commerciaux en une semaine : ils utilisent des captures d'écran envoyées par email pour voir leurs chiffres en clientèle, faute de mieux.", apercu: "Retour de 2 commerciaux en une semaine : ils utilisent des captures d'écran envoyées par email pour voir leurs…", painPoint: "Workaround manuel (captures d'écran) pour consulter les KPIs hors bureau.", tags: ["Mobile", "Reporting"], themeId: "th3", source: "Sales" },
+  { id: "fb7", date: "2026-07-05T13:15:00.000Z", texte: "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel.", apercu: "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel.", painPoint: "Ressaisie manuelle des données de vente dans Excel, 2h/jour perdues.", tags: ["Export", "Reporting"], themeId: "th4", source: "Sales" },
+  { id: "fb8", date: "2026-07-06T09:50:00.000Z", texte: "Un second client a demandé si on pouvait exporter directement depuis le dashboard sans repasser par le support.", apercu: "Un second client a demandé si on pouvait exporter directement depuis le dashboard sans repasser par le support.", painPoint: "Pas d'export self-service, dépendance au support.", tags: ["Export"], themeId: "th4", source: "Support" },
+];
+
+const MOCK_THEMES = [
+  { id: "th1", titre: "Notifications manquantes sur mobile", description: "Les commerciaux ne reçoivent aucune alerte quand un client important répond — ils l'apprennent trop tard.", status: "nouveau-signal", ordre: 0, feedbackIds: ["fb1"], tags: ["Mobile", "Notification"], createdAt: "2026-07-20T09:12:00.000Z", updatedAt: "2026-07-20T09:12:00.000Z", backlogItemIds: [], pushedAt: null },
+  { id: "th2", titre: "Recherche de contrats archivés trop lente", description: "Le support reçoit des tickets récurrents : les contrats de plus d'un an sont quasi introuvables dans la recherche actuelle.", status: "en-consolidation", ordre: 0, feedbackIds: ["fb2", "fb3"], tags: ["Recherche", "Data"], createdAt: "2026-07-18T14:30:00.000Z", updatedAt: "2026-07-19T11:05:00.000Z", backlogItemIds: [], pushedAt: null },
+  { id: "th3", titre: "Suivi des KPIs en mobilité pour le terrain", description: "Trois retours distincts confirment que les commerciaux terrain veulent consulter leurs chiffres sans revenir au bureau.", status: "valide", ordre: 0, feedbackIds: ["fb4", "fb5", "fb6"], tags: ["Mobile", "Dashboard", "Reporting"], createdAt: "2026-07-10T08:40:00.000Z", updatedAt: "2026-07-15T10:00:00.000Z", backlogItemIds: [], pushedAt: null },
+  { id: "th4", titre: "Export des données de vente vers Excel", description: "Ressaisie manuelle chronophage et absence d'export self-service, remontées par plusieurs comptes.", status: "pousse-backlog", ordre: 0, feedbackIds: ["fb7", "fb8"], tags: ["Export", "Reporting"], createdAt: "2026-07-05T13:15:00.000Z", updatedAt: "2026-07-06T09:50:00.000Z", backlogItemIds: ["d1", "d2"], pushedAt: "2026-07-06T09:50:00.000Z" },
+];
+
+/* ─── THÈMES : persistance (pattern BACKLOG_KEY) ─────────────── */
+const INBOX_KEY = "feedbackpo_inbox";
+const loadInbox = () => {
+  try { const raw = localStorage.getItem(INBOX_KEY); return raw === null ? MOCK_INBOX : JSON.parse(raw); }
+  catch { return MOCK_INBOX; }
+};
+const saveInbox = (inbox) => { try { localStorage.setItem(INBOX_KEY, JSON.stringify(inbox)); } catch {} };
+
+const THEMES_KEY = "feedbackpo_themes";
+const loadThemes = () => {
+  try { const raw = localStorage.getItem(THEMES_KEY); return raw === null ? MOCK_THEMES : JSON.parse(raw); }
+  catch { return MOCK_THEMES; }
+};
+const saveThemes = (themes) => { try { localStorage.setItem(THEMES_KEY, JSON.stringify(themes)); } catch {} };
+
+/* ─── THÈMES : IA + utils ─────────────────────────────────────── */
+const defaultThemeStatus = (currentStatus, feedbackCount) =>
+  currentStatus === "nouveau-signal" && feedbackCount > 1 ? "en-consolidation" : currentStatus;
+
+/* Estimation rapide (heuristique, avant appel IA) pour aider à trier d'un coup d'œil.
+   Le score définitif est recalculé par l'IA au moment du push vers le backlog. */
+const estimateThemePriority = (feedbackCount, framework) => {
+  if (framework === "RICE") {
+    const reach = feedbackCount * 15;
+    const score = Math.round((reach * 2 * 0.7) / 2);
+    return { framework: "RICE", label: `RICE ~${score}`, sub: `reach ~${reach}` };
+  }
+  const valeur = feedbackCount >= 3 ? "Must Have" : feedbackCount === 2 ? "Should Have" : "Could Have";
+  return { framework: "MoSCoW", label: valeur, p: MOSCOW_TO_P[valeur] };
+};
+
+/* Impact business estimé pour un thème pas encore poussé — donne toujours une lecture
+   business (volume de signal), en complément du pain point factuel. */
+const estimateBusinessImpact = (feedbackCount) => {
+  if (feedbackCount >= 3) return `Signal fort : ${feedbackCount} retours distincts — risque d'insatisfaction ou de perte d'efficacité récurrente si non traité.`;
+  if (feedbackCount === 2) return `Signal confirmé : ${feedbackCount} retours indépendants — tendance à surveiller avant qu'elle ne s'aggrave.`;
+  return `Signal isolé : 1 retour à date — à consolider avant priorisation ferme.`;
+};
+
+async function clusterFeedback(feedbackText, openThemes) {
+  const ctx = openThemes.length
+    ? `\n\n--- THÈMES EXISTANTS (${openThemes.length}) ---\n` +
+      openThemes.map(t => `[${t.id}] ${t.titre} — ${t.description}`).join("\n")
+    : "";
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400, system: THEME_CLUSTER_PROMPT, messages: [{ role: "user", content: `Feedback:\n${feedbackText}${ctx}` }] })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error("Clé API invalide (VITE_ANTHROPIC_API_KEY).");
+    if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
+    throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
+  }
+  const data = await res.json();
+  const txt  = (data.content?.[0]?.text || "").replace(/```json\n?|```\n?/g, "").trim();
+  return JSON.parse(txt);
+}
+
+async function pushThemeToBacklog({ theme, feedbackEntries, backlog, framework = "MoSCoW" }) {
+  const feedbackBlock = feedbackEntries.map((f, i) => `Feedback ${i + 1} : ${f.texte}`).join("\n\n");
+  const existingCtx = backlog.length > 0
+    ? `\n\n--- BACKLOG EXISTANT (${backlog.length} items — détecte les doublons) ---\n` +
+      backlog.slice(0, 30).map(i => `[${i.id}] [${i.type}] ${i.titre}`).join("\n")
+    : "";
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system: THEME_TO_BACKLOG_PROMPT, messages: [{ role: "user", content: `Framework: ${framework}\nThème : "${theme.titre}"\n\nFeedbacks regroupés (${feedbackEntries.length}) :\n${feedbackBlock}${existingCtx}` }] })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error("Clé API invalide (VITE_ANTHROPIC_API_KEY).");
+    if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
+    throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
+  }
+  const data   = await res.json();
+  const txt    = (data.content?.[0]?.text || "").replace(/```json\n?|```\n?/g, "").trim();
+  const parsed = JSON.parse(txt).items || [];
+
+  /* L'IA réutilise toujours les mêmes ids génériques ("item-1"...) d'un push à l'autre —
+     on les remappe vers des ids uniques pour éviter toute collision avec un push précédent. */
+  const idMap = {};
+  parsed.forEach(item => { idMap[item.id] = makeId(); });
+  const remapped = parsed.map(item => ({
+    ...item,
+    id: idMap[item.id],
+    parentId: item.parentId ? (idMap[item.parentId] ?? null) : null,
+  }));
+
+  return remapped.map(item => ({
+    ...item, status: defaultStatus(item), ordre: 0,
+    prototypes: [], commentaires: [], valeur_metier: item.valeur_metier || "",
+    tags: item.tags || [], rice: item.rice || null,
+    potentiel_doublon: item.potentiel_doublon || null,
+  }));
+}
+
+/* ─── THÈMES : rapport partageable (export direction) ────────── */
+const hexColor = (c) => c.replace("#", "");
+
+async function exportThemesReportPPTX(themes, feedbackInbox, backlog) {
+  const pres = new pptxgen();
+  pres.layout = "LAYOUT_16x9";
+  pres.author = "Ernestine Matjabo";
+  pres.title = "Rapport Feedback → Backlog";
+
+  const date          = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const pushedCount    = themes.filter(t => t.status === "pousse-backlog").length;
+  const conversionRate = themes.length ? Math.round((pushedCount / themes.length) * 100) : 0;
+  const sorted         = themes.slice().sort((a, b) => b.feedbackIds.length - a.feedbackIds.length);
+
+  /* Slide 1 — Titre */
+  const cover = pres.addSlide();
+  cover.background = { color: hexColor(T.primary) };
+  cover.addText("FEEDBACKPO", { x: 0.6, y: 0.5, w: 9, h: 0.4, fontSize: 13, bold: true, color: "FFFFFF", charSpacing: 3 });
+  cover.addText("Rapport Feedback → Backlog", { x: 0.6, y: 2.0, w: 9, h: 1.2, fontSize: 34, bold: true, color: "FFFFFF" });
+  cover.addText(date, { x: 0.6, y: 3.1, w: 9, h: 0.5, fontSize: 14, color: "E0E0FF" });
+
+  /* Slide 2 — Synthèse (stats + barres) */
+  const synth = pres.addSlide();
+  synth.addText("Synthèse", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: hexColor(T.text) });
+
+  const stats = [
+    { label: "Feedbacks reçus",     value: String(feedbackInbox.length), color: hexColor(T.primary) },
+    { label: "Thèmes identifiés",   value: String(themes.length),        color: "7C3AED" },
+    { label: "Taux de conversion",  value: `${conversionRate}%`,          color: hexColor(T.success) },
+    { label: "Poussés au backlog",  value: String(pushedCount),          color: hexColor(T.orange) },
+  ];
+  stats.forEach((s, i) => {
+    const x = 0.5 + i * 2.35;
+    synth.addShape(pres.ShapeType.roundRect, { x, y: 1.1, w: 2.1, h: 1.3, fill: { color: "F6F6FB" }, line: { color: "E8E8F0", width: 1 }, rectRadius: 0.08 });
+    synth.addText(s.value, { x, y: 1.25, w: 2.1, h: 0.6, align: "center", fontSize: 28, bold: true, color: s.color });
+    synth.addText(s.label, { x, y: 1.85, w: 2.1, h: 0.4, align: "center", fontSize: 10, color: hexColor(T.textMuted) });
+  });
+
+  if (themes.length) {
+    const barData = [{
+      name: "Feedbacks",
+      labels: sorted.map(t => t.titre.length > 26 ? t.titre.slice(0, 26) + "…" : t.titre),
+      values: sorted.map(t => t.feedbackIds.length),
+    }];
+    synth.addChart(pres.ChartType.bar, barData, {
+      x: 0.5, y: 2.8, w: 9, h: 2.5, barDir: "col", chartColors: [hexColor(T.primary)],
+      showTitle: true, title: "Feedbacks par thème", titleFontSize: 12,
+      showLegend: false, catAxisLabelFontSize: 8, valAxisLabelFontSize: 9,
+      showValue: true, dataLabelFontSize: 9,
+    });
+  }
+
+  /* Slide 3 — Répartition par statut (camembert) */
+  if (themes.length) {
+    const pie = pres.addSlide();
+    pie.addText("Répartition des thèmes par statut", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: hexColor(T.text) });
+    const pieData = [{
+      name: "Statuts",
+      labels: THEME_PIPELINE.map(s => THEME_STATUS_CFG[s].label),
+      values: THEME_PIPELINE.map(s => themes.filter(t => t.status === s).length),
+    }];
+    pie.addChart(pres.ChartType.pie, pieData, {
+      x: 1.7, y: 1.2, w: 6.6, h: 4.1,
+      chartColors: THEME_PIPELINE.map(s => hexColor(THEME_STATUS_CFG[s].dot)),
+      showLegend: true, legendPos: "r", legendFontSize: 11,
+      showValue: true, dataLabelFontSize: 11, dataLabelColor: "FFFFFF",
+    });
+  }
+
+  /* Slide — Roadmap produit (Now / Next / Later) */
+  const roadmapItems = backlog.filter(i => HIERARCHY_TYPES.includes(i.type));
+  if (roadmapItems.length) {
+    const roadmap = pres.addSlide();
+    roadmap.addText("Roadmap produit", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: hexColor(T.text) });
+
+    const ROADMAP_BUCKETS = [
+      { label: "NOW",   sub: "Sprint en cours",               statuses: ["pret-pour-dev"],                          color: T.success },
+      { label: "NEXT",  sub: "Prochain sprint / en affinage",  statuses: ["prochain-sprint", "en-affinage"],         color: T.primary },
+      { label: "LATER", sub: "À clarifier",                    statuses: ["a-clarifier"],                            color: "#EA580C" },
+    ];
+
+    ROADMAP_BUCKETS.forEach((bucket, i) => {
+      const x = 0.5 + i * 3.05;
+      const items = roadmapItems.filter(it => bucket.statuses.includes(it.status));
+      roadmap.addShape(pres.ShapeType.roundRect, { x, y: 1.1, w: 2.85, h: 4.2, fill: { color: "F6F6FB" }, line: { color: hexColor(bucket.color), width: 1.5 }, rectRadius: 0.03 });
+      roadmap.addText(bucket.label, { x: x + 0.15, y: 1.25, w: 2.55, h: 0.35, fontSize: 15, bold: true, color: hexColor(bucket.color) });
+      roadmap.addText(bucket.sub, { x: x + 0.15, y: 1.55, w: 2.55, h: 0.3, fontSize: 9.5, color: hexColor(T.textSubtle) });
+      const listText = items.length
+        ? items.map(it => ({ text: `[${it.type}] ${shortTitle(it.titre)}`, options: { bullet: true, breakLine: true } }))
+        : [{ text: "Rien pour l'instant" }];
+      roadmap.addText(listText, { x: x + 0.15, y: 1.95, w: 2.55, h: 3.2, fontSize: 10.5, color: hexColor(T.text), valign: "top" });
+    });
+  }
+
+  /* Slide — Sprint Review (ce qui a été livré / est prêt à démontrer) */
+  const sprint       = loadSprint();
+  const sprintItems  = backlog.filter(i => i.status === "pret-pour-dev" && EXECUTABLE_TYPES.includes(i.type));
+  if (sprintItems.length) {
+    const review = pres.addSlide();
+    review.addText(`Sprint Review — ${sprint.name}`, { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, color: hexColor(T.text) });
+    const usedSP  = sprintItems.filter(i => i.story_points).reduce((s, i) => s + i.story_points, 0);
+    const visible = sprintItems.slice(0, 6);
+    const extra   = sprintItems.length - visible.length;
+    review.addText(`${sprintItems.length} ticket${sprintItems.length > 1 ? "s" : ""} prêt${sprintItems.length > 1 ? "s" : ""} à démontrer — ${usedSP} / ${sprint.capacity} SP`, { x: 0.5, y: 0.95, w: 9, h: 0.35, fontSize: 12.5, color: hexColor(T.textMuted) });
+
+    let y = 1.5;
+    visible.forEach(item => {
+      const tcfg   = TYPE_CFG[item.type] || TYPE_CFG["User Story"];
+      const rowH   = item.valeur_metier ? 0.85 : 0.55;
+      review.addShape(pres.ShapeType.roundRect, { x: 0.5, y, w: 9, h: rowH, fill: { color: "FAFAFD" }, line: { color: "E8E8F0", width: 1 }, rectRadius: 0.03 });
+      const titleRuns = [
+        { text: `[${item.type}]  `, options: { bold: true, color: hexColor(tcfg.color) } },
+        { text: shortTitle(item.titre), options: { bold: true, color: hexColor(T.text) } },
+      ];
+      if (item.story_points) titleRuns.push({ text: `   ⚡ ${item.story_points} SP`, options: { color: hexColor(T.primary) } });
+      review.addText(titleRuns, { x: 0.65, y: y + 0.08, w: 8.7, h: 0.3, fontSize: 12 });
+      if (item.valeur_metier) {
+        review.addText(item.valeur_metier, { x: 0.65, y: y + 0.4, w: 8.7, h: 0.4, fontSize: 10.5, italic: true, color: hexColor(T.textMuted) });
+      }
+      y += rowH + 0.12;
+    });
+    if (extra > 0) {
+      review.addText(`+ ${extra} autre${extra > 1 ? "s" : ""} ticket${extra > 1 ? "s" : ""} dans ce sprint`, { x: 0.5, y, w: 9, h: 0.3, fontSize: 10.5, italic: true, color: hexColor(T.textSubtle) });
+    }
+  }
+
+  /* Slides suivantes — 1 par thème */
+  sorted.forEach(theme => {
+    const cfg     = THEME_STATUS_CFG[theme.status] || THEME_STATUS_CFG["nouveau-signal"];
+    const members = feedbackInbox.filter(f => theme.feedbackIds.includes(f.id));
+    const slide   = pres.addSlide();
+
+    slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: "100%", h: 0.12, fill: { color: hexColor(cfg.dot) } });
+    slide.addText(theme.titre, { x: 0.5, y: 0.4, w: 9, h: 0.7, fontSize: 22, bold: true, color: hexColor(T.text) });
+
+    slide.addShape(pres.ShapeType.roundRect, { x: 0.5, y: 1.1, w: 2.3, h: 0.35, fill: { color: hexColor(cfg.bg) }, line: { color: hexColor(cfg.border), width: 1 }, rectRadius: 0.5 });
+    slide.addText(cfg.label, { x: 0.5, y: 1.1, w: 2.3, h: 0.35, align: "center", valign: "middle", fontSize: 11, bold: true, color: hexColor(cfg.color) });
+
+    slide.addText([
+      { text: "Pain point : ", options: { bold: true } },
+      { text: theme.description || "—" },
+    ], { x: 0.5, y: 1.65, w: 9, h: 0.7, fontSize: 13, color: hexColor(T.textMuted) });
+
+    if (theme.tags?.length) {
+      slide.addText(theme.tags.join("   ·   "), { x: 0.5, y: 2.3, w: 9, h: 0.35, fontSize: 10.5, bold: true, color: hexColor(T.primary) });
+    }
+
+    const pushedItems = theme.status === "pousse-backlog" && theme.backlogItemIds?.length
+      ? backlog.filter(i => theme.backlogItemIds.includes(i.id))
+      : [];
+    const withValue = pushedItems.filter(i => i.valeur_metier);
+    const impactText = withValue.length
+      ? withValue.map(i => i.valeur_metier).join("  ·  ")
+      : estimateBusinessImpact(members.length);
+
+    /* Impact business — toujours visible, mis en avant visuellement */
+    let y = 2.8;
+    slide.addText("IMPACT BUSINESS", { x: 0.5, y, w: 9, h: 0.3, fontSize: 11, bold: true, charSpacing: 1, color: hexColor(T.success) });
+    y += 0.35;
+    const boxH = impactText.length > 110 ? 1.05 : 0.75;
+    slide.addShape(pres.ShapeType.roundRect, { x: 0.5, y, w: 9, h: boxH, fill: { color: hexColor(T.successLight) }, line: { color: hexColor(T.successBorder), width: 1 }, rectRadius: 0.04 });
+    slide.addText(impactText, { x: 0.7, y, w: 8.6, h: boxH, valign: "middle", fontSize: 12.5, bold: !withValue.length ? false : true, color: "14532D" });
+    y += boxH + 0.25;
+
+    if (pushedItems.length) {
+      const linkUrl = `${window.location.origin}${window.location.pathname}?item=${theme.backlogItemIds[0]}`;
+      slide.addText([
+        { text: `🎫 ${pushedItems.length} ticket${pushedItems.length > 1 ? "s" : ""} généré${pushedItems.length > 1 ? "s" : ""}   `, options: { color: hexColor(T.text) } },
+        { text: "→ Voir dans le backlog", options: { hyperlink: { url: linkUrl }, color: hexColor(T.primary), bold: true, underline: true } },
+      ], { x: 0.5, y, w: 9, h: 0.35, fontSize: 12 });
+    } else {
+      const est = estimateThemePriority(members.length, "MoSCoW");
+      slide.addText([
+        { text: "Priorité estimée : ", options: { bold: true } },
+        { text: `${est.p} · ${est.label} (précisée lors du passage au backlog)` },
+      ], { x: 0.5, y, w: 9, h: 0.35, fontSize: 11.5, color: hexColor(T.textMuted) });
+    }
+
+    slide.addText(`${members.length} feedback${members.length > 1 ? "s" : ""} consolidé${members.length > 1 ? "s" : ""}`, { x: 0.5, y: 5.15, w: 9, h: 0.3, fontSize: 9.5, italic: true, color: hexColor(T.textSubtle) });
+  });
+
+  await pres.writeFile({ fileName: `rapport-themes-${new Date().toISOString().slice(0, 10)}.pptx` });
+}
+
+/* ─── THÈMES : carte + drag ──────────────────────────────────── */
+function ThemeCard({ theme, feedbackItems, framework = "MoSCoW", onOpenDetail, onPush, pushing, onGoToBacklogItem, isDragging = false, dragListeners, dragAttributes }) {
+  const cfg = THEME_STATUS_CFG[theme.status] || THEME_STATUS_CFG["nouveau-signal"];
+  const visibleFeedback = feedbackItems.slice(0, 3);
+  const extra = feedbackItems.length - visibleFeedback.length;
+  const estimate = theme.status === "pousse-backlog" ? null : estimateThemePriority(feedbackItems.length, framework);
+  const pc = estimate?.framework === "MoSCoW" ? (PRIO_CFG[estimate.label] || { bg: "#F3F4F6", color: "#6B7280" }) : null;
+  const sources = [...new Set(feedbackItems.map(f => f.source).filter(Boolean))];
+
+  return (
+    <div onClick={() => onOpenDetail?.(theme)} style={{ backgroundColor: T.card, borderRadius: T.radius, boxShadow: isDragging ? T.shadowMd : T.shadow, border: `1px solid ${T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, overflow: "hidden", cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s" }}>
+
+      {dragListeners && (
+        <div {...dragListeners} {...dragAttributes} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, padding: "5px 0 4px", cursor: isDragging ? "grabbing" : "grab", backgroundColor: "rgba(0,0,0,0.018)", borderBottom: `1px solid ${T.borderSubtle}`, touchAction: "none", userSelect: "none" }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = "rgba(92,95,212,0.06)"}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.018)"}>
+          {[0, 1, 2, 3, 4].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", backgroundColor: "#C4C4D4" }} />)}
+        </div>
+      )}
+
+      <div style={{ padding: "12px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: cfg.bg, color: cfg.color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, border: `1px solid ${cfg.border}` }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: cfg.dot }} />
+            {cfg.label}
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: "#F3F4F6", color: T.textMuted, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>
+            <Users size={10} /> {feedbackItems.length} feedback{feedbackItems.length > 1 ? "s" : ""}
+          </span>
+          {estimate && (
+            <span title="Estimation avant passage au backlog — recalculée par l'IA au moment du push" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, backgroundColor: pc ? pc.bg : T.primaryLight, color: pc ? pc.color : T.primary, border: `1px solid ${pc ? pc.color : T.primary}22` }}>
+              {pc && <span style={{ fontWeight: 800 }}>{estimate.p}</span>} {estimate.label}
+            </span>
+          )}
+        </div>
+
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 5 }}>{theme.titre}</div>
+        <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.5, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{theme.description}</div>
+
+        {visibleFeedback.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+            {visibleFeedback.map(fb => (
+              <div key={fb.id} style={{ fontSize: 11, color: T.textSubtle, backgroundColor: "#FAFAFD", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, padding: "5px 8px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                "{fb.apercu}"
+              </div>
+            ))}
+            {extra > 0 && <div style={{ fontSize: 11, color: T.textSubtle, fontWeight: 600 }}>+{extra} autre{extra > 1 ? "s" : ""}</div>}
+          </div>
+        )}
+
+        {theme.tags?.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+            {theme.tags.slice(0, 4).map(tag => (
+              <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>{tag}</span>
+            ))}
+          </div>
+        )}
+
+        {sources.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
+            {sources.map(s => {
+              const scfg = SOURCE_CFG[s] || SOURCE_CFG["Autre"];
+              return <span key={s} style={{ fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}` }}>{s}</span>;
+            })}
+          </div>
+        )}
+
+        <div onClick={e => e.stopPropagation()}>
+          {theme.status === "pousse-backlog" ? (
+            theme.backlogItemIds?.length > 0 && (
+              <button onClick={() => onGoToBacklogItem?.(theme.backlogItemIds[0])} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, background: T.primaryLight, color: T.primary, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                Voir dans le Backlog <ArrowRight size={13} />
+              </button>
+            )
+          ) : (
+            <button onClick={() => onPush?.(theme)} disabled={pushing} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", border: "none", borderRadius: T.radiusSm, background: pushing ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: pushing ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+              {pushing ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Génération…</> : <><ArrowRight size={13} /> Pousser vers le backlog</>}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SortableThemeCard({ theme, feedbackItems, framework, onOpenDetail, onPush, pushing, onGoToBacklogItem }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: theme.id, disabled: theme.status === "pousse-backlog" });
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ThemeCard theme={theme} feedbackItems={feedbackItems} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushing={pushing} onGoToBacklogItem={onGoToBacklogItem} isDragging={isDragging} dragListeners={theme.status === "pousse-backlog" ? undefined : listeners} dragAttributes={attributes} />
+    </div>
+  );
+}
+
+/* ─── THÈMES : Kanban de maturation ───────────────────────────── */
+function ThemeKanbanColumn({ statusKey, themes, feedbackInbox, framework, onOpenDetail, onPush, pushingId, onGoToBacklogItem, isMobile = false }) {
+  const cfg = THEME_STATUS_CFG[statusKey];
+  const droppable = statusKey !== "pousse-backlog";
+  const { setNodeRef, isOver } = useDroppable({ id: statusKey, disabled: !droppable });
+  return (
+    <div style={{ flex: isMobile ? "0 0 260px" : 1, minWidth: isMobile ? 260 : 220, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "0 2px" }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: cfg.dot, flexShrink: 0 }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{cfg.label}</span>
+        <span style={{ backgroundColor: cfg.bg, color: cfg.color, borderRadius: 20, fontSize: 11, fontWeight: 700, padding: "1px 8px", border: `1px solid ${cfg.border}` }}>{themes.length}</span>
+        <div style={{ flex: 1, height: 1, backgroundColor: T.border }} />
+      </div>
+      <div ref={setNodeRef} style={{ flex: 1, minHeight: 80, borderRadius: T.radius, backgroundColor: isOver ? T.primaryLight : (themes.length === 0 ? "#FAFAFD" : "transparent"), border: isOver ? `1.5px dashed ${T.primary}` : (themes.length === 0 ? `1.5px dashed ${T.border}` : "none"), display: "flex", flexDirection: "column", justifyContent: themes.length === 0 ? "center" : "flex-start", padding: themes.length === 0 ? 12 : 0, transition: "background 0.15s" }}>
+        {themes.length === 0 && <p style={{ textAlign: "center", fontSize: 12, color: T.textSubtle, margin: 0 }}>{droppable ? "Déposer ici" : "—"}</p>}
+        <SortableContext items={themes.map(t => t.id)} strategy={verticalListSortingStrategy}>
+          {themes.map(theme => (
+            <SortableThemeCard key={theme.id} theme={theme} feedbackItems={feedbackInbox.filter(f => theme.feedbackIds.includes(f.id))} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushing={pushingId === theme.id} onGoToBacklogItem={onGoToBacklogItem} />
+          ))}
+        </SortableContext>
+      </div>
+    </div>
+  );
+}
+
+function ThemeKanbanBoard({ themes, feedbackInbox, framework, onThemesChange, onOpenDetail, onPush, pushingId, onGoToBacklogItem, isMobile = false }) {
+  const [activeId, setActiveId] = useState(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  const findContainer = (id) => THEME_PIPELINE.includes(id) ? id : themes.find(t => t.id === id)?.status;
+
+  const onDragStart = ({ active }) => setActiveId(active.id);
+
+  const onDragEnd = ({ active, over }) => {
+    setActiveId(null);
+    if (!over) return;
+    const overContainer = findContainer(over.id);
+    const activeTheme   = themes.find(t => t.id === active.id);
+    if (!activeTheme || !overContainer) return;
+    if (overContainer === "pousse-backlog" || activeTheme.status === "pousse-backlog") return;
+
+    const colThemes  = themes.filter(t => t.status === overContainer);
+    const overIndex  = colThemes.findIndex(t => t.id === over.id);
+    let next = themes.map(t => t.id === activeTheme.id ? { ...t, status: overContainer, updatedAt: new Date().toISOString() } : t);
+    if (activeTheme.status === overContainer && overIndex !== -1) {
+      const activeIndex  = colThemes.findIndex(t => t.id === active.id);
+      const reordered    = arrayMove(colThemes, activeIndex, overIndex);
+      const reorderedIds = reordered.map(t => t.id);
+      next = next.map(t => colThemes.some(c => c.id === t.id) ? { ...t, ordre: reorderedIds.indexOf(t.id) } : t);
+    }
+    onThemesChange(next);
+  };
+
+  const activeTheme = activeId ? themes.find(t => t.id === activeId) : null;
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", ...(isMobile ? { overflowX: "auto", paddingBottom: 12, WebkitOverflowScrolling: "touch" } : {}) }}>
+        {THEME_PIPELINE.map(col => {
+          const colThemes = themes.filter(t => t.status === col).sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
+          return <ThemeKanbanColumn key={col} statusKey={col} themes={colThemes} feedbackInbox={feedbackInbox} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} isMobile={isMobile} />;
+        })}
+      </div>
+      <DragOverlay>{activeTheme && <ThemeCard theme={activeTheme} feedbackItems={feedbackInbox.filter(f => activeTheme.feedbackIds.includes(f.id))} framework={framework} isDragging />}</DragOverlay>
+    </DndContext>
+  );
+}
+
+/* ─── THÈMES : vue cartes groupées ────────────────────────────── */
+function ThemeGroupedView({ themes, feedbackInbox, framework, onOpenDetail, onPush, pushingId, onGoToBacklogItem }) {
+  const [filter, setFilter]       = useState(null);
+  const [sourceFilter, setSource] = useState(null);
+
+  const themeSources = (theme) => [...new Set(feedbackInbox.filter(f => theme.feedbackIds.includes(f.id)).map(f => f.source).filter(Boolean))];
+
+  const filtered = themes
+    .filter(t => !filter || t.status === filter)
+    .filter(t => !sourceFilter || themeSources(t).includes(sourceFilter));
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        <button onClick={() => setFilter(null)} style={{ padding: "5px 12px", borderRadius: 99, border: `1.5px solid ${!filter ? T.primary : T.border}`, backgroundColor: !filter ? T.primaryLight : "transparent", color: !filter ? T.primary : T.textMuted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          Tous ({themes.length})
+        </button>
+        {THEME_PIPELINE.map(status => {
+          const cfg   = THEME_STATUS_CFG[status];
+          const count = themes.filter(t => t.status === status).length;
+          return (
+            <button key={status} onClick={() => setFilter(status)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 99, border: `1.5px solid ${filter === status ? cfg.color : T.border}`, backgroundColor: filter === status ? cfg.bg : "transparent", color: filter === status ? cfg.color : T.textMuted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: cfg.dot }} /> {cfg.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11.5, color: T.textSubtle, marginRight: 2 }}>Source :</span>
+        <button onClick={() => setSource(null)} style={{ padding: "4px 10px", borderRadius: 99, border: `1px solid ${!sourceFilter ? T.primary : T.border}`, backgroundColor: !sourceFilter ? T.primaryLight : "transparent", color: !sourceFilter ? T.primary : T.textMuted, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          Toutes
+        </button>
+        {FEEDBACK_SOURCES.map(s => {
+          const cfg   = SOURCE_CFG[s];
+          const count = themes.filter(t => themeSources(t).includes(s)).length;
+          if (count === 0) return null;
+          return (
+            <button key={s} onClick={() => setSource(sourceFilter === s ? null : s)} style={{ padding: "4px 10px", borderRadius: 99, border: `1px solid ${sourceFilter === s ? cfg.color : T.border}`, backgroundColor: sourceFilter === s ? cfg.bg : "transparent", color: sourceFilter === s ? cfg.color : T.textMuted, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              {s} ({count})
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+        {filtered.map(theme => (
+          <ThemeCard key={theme.id} theme={theme} feedbackItems={feedbackInbox.filter(f => theme.feedbackIds.includes(f.id))} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushing={pushingId === theme.id} onGoToBacklogItem={onGoToBacklogItem} />
+        ))}
+      </div>
+      {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, fontSize: 13, color: T.textSubtle }}>Aucun thème pour ce filtre.</div>}
+    </div>
+  );
+}
+
+/* ─── THÈMES : panneau détail ──────────────────────────────────── */
+function ThemeDetailPanel({ theme, feedbackItems, onUpdate, onDelete, onPush, pushing, onGoToBacklogItem, onClose }) {
+  const [confirmDelete, setConfirm] = useState(false);
+  const cfg = THEME_STATUS_CFG[theme.status] || THEME_STATUS_CFG["nouveau-signal"];
+  const sources = [...new Set(feedbackItems.map(f => f.source).filter(Boolean))];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", backgroundColor: "rgba(15,15,25,0.25)" }} onClick={onClose}>
+      <div style={{ width: 480, maxWidth: "92vw", height: "100%", backgroundColor: T.card, boxShadow: "-4px 0 24px rgba(0,0,0,.14)", overflow: "auto", padding: "22px 22px 60px", animation: "slideInRight 0.2s ease" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: cfg.bg, color: cfg.color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, border: `1px solid ${cfg.border}` }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: cfg.dot }} /> {cfg.label}
+          </span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textSubtle, display: "flex" }}><X size={18} /></button>
+        </div>
+
+        <InlineEdit value={theme.titre} onChange={titre => onUpdate({ ...theme, titre })} style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 8 }} />
+        <InlineEdit value={theme.description} onChange={description => onUpdate({ ...theme, description })} multiline placeholder="Décrire le pain point…" style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.6, marginBottom: 16 }} />
+
+        {theme.tags?.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: sources.length ? 8 : 20 }}>
+            {theme.tags.map(tag => <span key={tag} style={{ fontSize: 10.5, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "2px 7px", border: "1px solid #C7D2FE" }}>{tag}</span>)}
+          </div>
+        )}
+
+        {sources.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 20 }}>
+            {sources.map(s => {
+              const scfg = SOURCE_CFG[s] || SOURCE_CFG["Autre"];
+              return <span key={s} style={{ fontSize: 10.5, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "2px 7px", border: `1px solid ${scfg.border}` }}>{s}</span>;
+            })}
+          </div>
+        )}
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 10 }}>
+          {feedbackItems.length} feedback{feedbackItems.length > 1 ? "s" : ""} regroupé{feedbackItems.length > 1 ? "s" : ""}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+          {feedbackItems.map(fb => {
+            const scfg = fb.source ? (SOURCE_CFG[fb.source] || SOURCE_CFG["Autre"]) : null;
+            return (
+              <div key={fb.id} style={{ backgroundColor: "#FAFAFD", border: `1px solid ${T.borderSubtle}`, borderRadius: T.radiusSm, padding: "10px 12px" }}>
+                {scfg && (
+                  <span style={{ display: "inline-block", fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}`, marginBottom: 6 }}>{fb.source}</span>
+                )}
+                <div style={{ fontSize: 12.5, color: T.text, lineHeight: 1.55, marginBottom: 6 }}>{fb.texte}</div>
+                {fb.painPoint && <div style={{ fontSize: 11.5, color: T.primary, fontWeight: 600 }}>→ {fb.painPoint}</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        {theme.status !== "pousse-backlog" && (
+          <button onClick={() => onPush(theme)} disabled={pushing} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 0", border: "none", borderRadius: T.radius, background: pushing ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: pushing ? "not-allowed" : "pointer", fontFamily: "inherit", marginBottom: 12 }}>
+            {pushing ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Génération du ticket…</> : <><ArrowRight size={15} /> Pousser vers le backlog</>}
+          </button>
+        )}
+        {theme.status === "pousse-backlog" && theme.backlogItemIds?.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+            {theme.backlogItemIds.map(id => (
+              <button key={id} onClick={() => onGoToBacklogItem(id)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 0", border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, background: T.primaryLight, color: T.primary, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                Voir #{toRef(id)} dans le Backlog <ArrowRight size={13} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ borderTop: `1px solid ${T.borderSubtle}`, paddingTop: 14 }}>
+          {confirmDelete ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, color: T.danger, fontWeight: 600, flex: 1 }}>Supprimer ce thème ? Les feedbacks resteront dans l'inbox, non rattachés.</span>
+              <button onClick={() => onDelete(theme.id)} style={{ fontSize: 12, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>Oui</button>
+              <button onClick={() => setConfirm(false)} style={{ fontSize: 12, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>Non</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirm(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: T.textSubtle, fontSize: 12.5, fontFamily: "inherit", padding: 0 }}>
+              <Trash2 size={13} /> Supprimer ce thème
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PAGE: THÈMES ────────────────────────────────────────────── */
+function PageThemes({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, onSetBacklog, onGoToBacklogItem }) {
+  const isMobile = useIsMobile();
+  const [view, setView]           = useState("cartes");
+  const [detailId, setDetailId]   = useState(null);
+  const [pushingId, setPushingId] = useState(null);
+  const [pushError, setPushError] = useState("");
+  const [framework, setFramework] = useState("MoSCoW");
+  const [exportingReport, setExportingReport] = useState(false);
+
+  const handleExportReport = async () => {
+    setExportingReport(true);
+    try { await exportThemesReportPPTX(themes, feedbackInbox, backlog); }
+    catch (e) { setPushError(e.message || "Erreur lors de la génération du rapport."); }
+    finally { setExportingReport(false); }
+  };
+
+  const detailTheme = detailId ? themes.find(t => t.id === detailId) : null;
+
+  const handleUpdate = (updated) => onSetThemes(themes.map(t => t.id === updated.id ? updated : t));
+
+  const handleDelete = (id) => {
+    onSetInbox(feedbackInbox.map(fb => fb.themeId === id ? { ...fb, themeId: null } : fb));
+    onSetThemes(themes.filter(t => t.id !== id));
+    setDetailId(null);
+  };
+
+  const handlePush = async (theme) => {
+    setPushingId(theme.id); setPushError("");
+    try {
+      const feedbackEntries = feedbackInbox.filter(f => theme.feedbackIds.includes(f.id));
+      const items    = await pushThemeToBacklog({ theme, feedbackEntries, backlog, framework });
+      const rootIds  = items.filter(i => !i.parentId).map(i => i.id);
+      onSetBacklog([...backlog, ...items]);
+      onSetThemes(themes.map(t => t.id === theme.id
+        ? { ...t, status: "pousse-backlog", backlogItemIds: rootIds.length ? rootIds : items.map(i => i.id), pushedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        : t));
+    } catch (e) { setPushError(e.message || "Erreur inattendue."); }
+    finally { setPushingId(null); }
+  };
+
+  return (
+    <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "16px 12px 24px" : "20px 24px 28px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h1 style={{ fontSize: 19, fontWeight: 800, color: T.text, margin: "0 0 3px", letterSpacing: "-0.02em" }}>Thèmes</h1>
+          <p style={{ fontSize: 12.5, color: T.textMuted, margin: 0 }}>Tous les feedbacks reçus, regroupés par pain point.</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <span style={{ fontSize: 11.5, color: T.textSubtle }}>Framework :</span>
+            {["MoSCoW", "RICE"].map(fw => (
+              <button key={fw} onClick={() => setFramework(fw)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${framework === fw ? T.primary : T.border}`, backgroundColor: framework === fw ? T.primaryLight : "transparent", color: framework === fw ? T.primary : T.textMuted, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{fw}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", backgroundColor: "#F0F0F8", borderRadius: 99, padding: 3 }}>
+            {[{ v: "cartes", label: "Cartes", Icon: Layout }, { v: "kanban", label: "Kanban", Icon: Layers }].map(({ v, label, Icon }) => (
+              <button key={v} onClick={() => setView(v)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 99, border: "none", fontSize: 12, fontWeight: view === v ? 600 : 400, color: view === v ? T.primary : T.textMuted, backgroundColor: view === v ? "#fff" : "transparent", boxShadow: view === v ? "0 1px 4px rgba(0,0,0,.09)" : "none", cursor: "pointer", fontFamily: "inherit" }}>
+                <Icon size={13} /> {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleExportReport}
+            disabled={themes.length === 0 || exportingReport}
+            title="Générer un PowerPoint partageable avec la direction (synthèse + graphiques)"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 13px", backgroundColor: themes.length === 0 ? "#F3F4F6" : T.primaryLight, color: themes.length === 0 ? T.textSubtle : T.primary, border: `1px solid ${themes.length === 0 ? T.border : T.primaryMid + "55"}`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: themes.length === 0 || exportingReport ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+            {exportingReport ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={13} />}
+            {exportingReport ? "Génération…" : "Exporter en PowerPoint"}
+          </button>
+        </div>
+      </div>
+
+      {pushError && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.dangerLight, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 14 }}>
+          <AlertCircle size={14} color={T.danger} style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: T.danger }}>{pushError}</span>
+        </div>
+      )}
+
+      {themes.length === 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: T.textSubtle, padding: "60px 0" }}>
+          <BookOpen size={32} color={T.textSubtle} style={{ opacity: 0.4 }} />
+          <p style={{ fontSize: 14, margin: 0 }}>Aucun thème pour l'instant.</p>
+          <p style={{ fontSize: 13, color: T.textSubtle, margin: 0 }}>Envoie un feedback depuis l'onglet Analyser pour créer ta première thématique.</p>
+        </div>
+      ) : view === "cartes" ? (
+        <ThemeGroupedView themes={themes} feedbackInbox={feedbackInbox} framework={framework} onOpenDetail={t => setDetailId(t.id)} onPush={handlePush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} />
+      ) : (
+        <ThemeKanbanBoard themes={themes} feedbackInbox={feedbackInbox} framework={framework} onThemesChange={onSetThemes} onOpenDetail={t => setDetailId(t.id)} onPush={handlePush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} isMobile={isMobile} />
+      )}
+
+      {detailTheme && (
+        <ThemeDetailPanel
+          theme={detailTheme}
+          feedbackItems={feedbackInbox.filter(f => detailTheme.feedbackIds.includes(f.id))}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          onPush={handlePush}
+          pushing={pushingId === detailTheme.id}
+          onGoToBacklogItem={onGoToBacklogItem}
+          onClose={() => setDetailId(null)}
+        />
+      )}
     </div>
   );
 }
 
 /* ─── PAGE: ANALYSER ─────────────────────────────────────────── */
-function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
-  const [feedback, setFeedback]     = useState("");
-  const [outputType, setOutputType] = useState("auto");
-  const [framework, setFramework]   = useState("MoSCoW");
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState("");
+function PageAnalyser({ themes, feedbackInbox, onSetThemes, onSetInbox, onComplete, onLoadDemo }) {
+  const [feedback, setFeedback] = useState("");
+  const [source, setSource]     = useState(FEEDBACK_SOURCES[0]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
   const charCount = feedback.length;
 
-  const handleGenerate = async () => {
+  const handleAnalyze = async () => {
     if (!feedback.trim() || loading) return;
     setLoading(true); setError("");
-    const startTime = Date.now();
-    const typeInstruction = outputType === "auto"
-      ? "Détecte automatiquement les niveaux (Epic/Feature/User Story/Bug/Spike)."
-      : `Type cible : "${outputType}".`;
     try {
-      const existingCtx = backlog.length > 0
-        ? `\n\n--- BACKLOG EXISTANT (${backlog.length} items — détecte les doublons) ---\n` +
-          backlog.slice(0, 30).map(i => `[${i.id}] [${i.type}] ${i.titre}`).join("\n")
-        : "";
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: "user", content: `Framework: ${framework}\n${typeInstruction}\n\nFeedback:\n${feedback}${existingCtx}` }] })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        if (res.status === 401) throw new Error("Clé API invalide (VITE_ANTHROPIC_API_KEY).");
-        if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
-        throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
+      const openThemes = themes.filter(t => t.status !== "pousse-backlog");
+      const result = await clusterFeedback(feedback, openThemes);
+      const now  = new Date().toISOString();
+      const fbId = makeId();
+      let themeId = result.theme_match?.est_nouveau ? null : result.theme_match?.id;
+      let nextThemes;
+
+      if (themeId && themes.some(t => t.id === themeId)) {
+        nextThemes = themes.map(t => t.id === themeId
+          ? {
+              ...t,
+              feedbackIds: [...t.feedbackIds, fbId],
+              tags: [...new Set([...(t.tags || []), ...(result.tags || [])])],
+              status: defaultThemeStatus(t.status, t.feedbackIds.length + 1),
+              updatedAt: now,
+            }
+          : t);
+      } else {
+        themeId = makeId();
+        nextThemes = [...themes, {
+          id: themeId,
+          titre: result.theme_match?.titre_theme || "Nouveau thème",
+          description: result.pain_point || "",
+          status: "nouveau-signal",
+          ordre: 0,
+          feedbackIds: [fbId],
+          tags: result.tags || [],
+          createdAt: now, updatedAt: now,
+          backlogItemIds: [], pushedAt: null,
+        }];
       }
-      const data     = await res.json();
-      const txt      = (data.content?.[0]?.text || "").replace(/```json\n?|```\n?/g, "").trim();
-      const parsed   = JSON.parse(txt).items || [];
-      const newItems = parsed.map(item => ({
-        ...item, status: defaultStatus(item), ordre: 0,
-        prototypes: [], commentaires: [], valeur_metier: item.valeur_metier || "",
-        tags: item.tags || [], rice: item.rice || null,
-        potentiel_doublon: item.potentiel_doublon || null,
-      }));
-      onSetBacklog([...backlog, ...newItems]);
-      saveToHistory(feedback, newItems, framework, Math.round((Date.now() - startTime) / 1000));
+
+      const newEntry = {
+        id: fbId, date: now,
+        texte: feedback,
+        apercu: feedback.slice(0, 160) + (feedback.length > 160 ? "…" : ""),
+        painPoint: result.pain_point || "",
+        tags: result.tags || [],
+        themeId,
+        source,
+      };
+
+      onSetThemes(nextThemes);
+      onSetInbox([newEntry, ...feedbackInbox]);
       setFeedback("");
       onComplete();
     } catch (e) { setError(e.message || "Erreur inattendue."); }
@@ -1585,7 +2320,7 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
             Bonjour, Ernestine.
           </h1>
           <p style={{ fontSize: 13.5, color: T.textMuted, margin: "0 0 22px", fontWeight: 400, animation: "fadeInUp 0.45s ease 0.05s both", lineHeight: 1.6 }}>
-            Colle un feedback brut — il devient un backlog structuré et priorisé en quelques secondes.
+            Colle un feedback brut — il rejoint automatiquement sa thématique.
           </p>
 
           <div style={{ animation: "fadeInUp 0.5s ease 0.1s both" }}>
@@ -1598,15 +2333,17 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
               {charCount > 0 && <span style={{ fontSize: 11.5, color: charCount < 60 ? "#F59E0B" : T.textSubtle }}>{charCount} caractères</span>}
             </div>
 
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-              <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Type de sortie</div>
-                <PillGroup name="type" value={outputType} onChange={setOutputType} options={[{ v: "auto", label: "Auto", sub: "Recommandé" }, { v: "Epic", label: "Epic" }, { v: "Feature", label: "Feature" }, { v: "User Story", label: "User Story" }, { v: "Bug", label: "Bug" }, { v: "Spike", label: "Spike" }]} />
-              </div>
-              <div style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.7)", borderRadius: T.radiusSm, padding: "12px 14px", border: `1px solid rgba(92,95,212,0.12)` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>Priorisation</div>
-                <PillGroup name="fw" value={framework} onChange={setFramework} options={[{ v: "MoSCoW", label: "MoSCoW", sub: "Must/Should/Could" }, { v: "RICE", label: "RICE", sub: "Score composite" }, { v: "Valeur-Effort", label: "Valeur/Effort", sub: "Impact vs effort" }]} />
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              <span style={{ fontSize: 11.5, color: T.textSubtle, marginRight: 2 }}>Source :</span>
+              {FEEDBACK_SOURCES.map(s => {
+                const cfg = SOURCE_CFG[s];
+                const active = source === s;
+                return (
+                  <button key={s} onClick={() => setSource(s)} style={{ padding: "4px 10px", borderRadius: 99, border: `1px solid ${active ? cfg.color : T.border}`, backgroundColor: active ? cfg.bg : "transparent", color: active ? cfg.color : T.textMuted, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
+                    {s}
+                  </button>
+                );
+              })}
             </div>
 
             {error && (
@@ -1616,20 +2353,20 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
               </div>
             )}
 
-            <button onClick={handleGenerate} disabled={loading || feedback.trim().length < 10}
+            <button onClick={handleAnalyze} disabled={loading || feedback.trim().length < 10}
               style={{ width: "100%", padding: "13px 0", border: "none", borderRadius: T.radius, background: loading || feedback.trim().length < 10 ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: loading || feedback.trim().length < 10 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading || feedback.trim().length < 10 ? "none" : T.shadowPrimary, fontFamily: "inherit", letterSpacing: "-0.01em", transition: "opacity 0.15s, transform 0.15s" }}
               onMouseEnter={e => { if (!loading && feedback.trim().length >= 10) { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
               onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
-              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Analyse en cours…</> : <><Sparkles size={16} /> Transformer en backlog</>}
+              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Analyse en cours…</> : <><Sparkles size={16} /> Identifier le thème</>}
             </button>
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", animation: "fadeInUp 0.55s ease 0.15s both" }}>
             {[
-              { icon: Zap,      label: "Génération IA",    color: T.primary,  bg: "rgba(92,95,212,0.1)" },
-              { icon: Layers,   label: "Hiérarchie auto",  color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
-              { icon: Target,   label: "MoSCoW / RICE",    color: "#15803D",  bg: "rgba(21,128,61,0.1)" },
-              { icon: Download, label: "Export Markdown",  color: "#C2410C",  bg: "rgba(194,65,12,0.1)" },
+              { icon: Zap,        label: "Détection IA",          color: T.primary,  bg: "rgba(92,95,212,0.1)" },
+              { icon: Layers,     label: "Regroupement par thème", color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
+              { icon: Target,     label: "Pain points",           color: "#15803D",  bg: "rgba(21,128,61,0.1)" },
+              { icon: ArrowRight, label: "Backlog sur demande",   color: "#C2410C",  bg: "rgba(194,65,12,0.1)" },
             ].map(({ icon: Icon, label, color, bg }) => (
               <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: bg, borderRadius: 20, padding: "4px 11px", cursor: "default" }}>
                 <Icon size={11} color={color} />
@@ -1639,7 +2376,7 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
           </div>
 
           <div style={{ textAlign: "center", marginTop: 14 }}>
-            <button onClick={() => { onSetBacklog(MOCK_KANBAN); onComplete(); }} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
+            <button onClick={onLoadDemo} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
               Explorer avec les données de démo →
             </button>
           </div>
@@ -1650,7 +2387,7 @@ function PageAnalyser({ backlog, onSetBacklog, onComplete }) {
 }
 
 /* ─── PAGE: BOARD GLOBAL ─────────────────────────────────────── */
-function PageGlobalBoard({ backlog, onSetBacklog }) {
+function PageGlobalBoard({ backlog, onSetBacklog, initialHighlight, onHighlightConsumed }) {
   const isMobile = useIsMobile();
   const [highlightedId, setHighId] = useState(null);
   const [activeFilter, setFilter]  = useState(null);
@@ -1662,6 +2399,18 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
   const handleKanbanChange = (updatedKanban) => onSetBacklog(backlog.map(b => updatedKanban.find(k => k.id === b.id) || b));
   const handleNavigate     = (id)      => { setHighId(id); setTimeout(() => setHighId(null), 2000); };
 
+  useEffect(() => {
+    if (!initialHighlight) return;
+    const target = backlog.find(i => i.id === initialHighlight);
+    if (target && HIERARCHY_TYPES.includes(target.type)) {
+      setFilter({ id: target.id, type: target.type.toLowerCase(), label: `${target.type} · ${shortTitle(target.titre)}` });
+    } else {
+      handleNavigate(initialHighlight);
+      setTimeout(() => document.getElementById(`card-${initialHighlight}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+    }
+    onHighlightConsumed?.();
+  }, [initialHighlight]);
+
   const items = getKanbanItems(backlog, activeFilter);
 
   return (
@@ -1669,8 +2418,20 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
       {items.length === 0
         ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10, color: T.textSubtle }}>
             <Layers size={32} color={T.textSubtle} style={{ opacity: 0.4 }} />
-            <p style={{ fontSize: 14, margin: 0 }}>Ton backlog est vide.</p>
-            <p style={{ fontSize: 13, color: T.textSubtle }}>Lance une analyse dans l'onglet Analyser pour générer ton premier backlog.</p>
+            {backlog.length === 0 ? (
+              <>
+                <p style={{ fontSize: 14, margin: 0 }}>Ton backlog est vide.</p>
+                <p style={{ fontSize: 13, color: T.textSubtle }}>Lance une analyse dans l'onglet Analyser pour générer ton premier backlog.</p>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 14, margin: 0 }}>{activeFilter?.label || "Ce filtre"} n'a pas encore de ticket exécutable.</p>
+                <p style={{ fontSize: 13, color: T.textSubtle, margin: 0 }}>La racine existe mais n'a pas d'enfant User Story/Bug/Spike sous elle.</p>
+                <button onClick={() => setFilter(null)} style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", backgroundColor: T.primaryLight, color: T.primary, border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                  <X size={12} /> Voir tout le backlog ({backlog.length})
+                </button>
+              </>
+            )}
           </div>
         : <>
             {/* Drawer hiérarchie sur mobile */}
@@ -1708,118 +2469,6 @@ function PageGlobalBoard({ backlog, onSetBacklog }) {
             </div>
           </>
       }
-    </>
-  );
-}
-
-/* ─── PAGE: HISTORIQUE ───────────────────────────────────────── */
-function PageHistorique({ onViewItems }) {
-  const [selected, setSelected] = useState(null);
-  const [history, setHistory]   = useState(loadHistory);
-  const isEmpty = history.length === 0;
-
-  const deleteEntry = (e, id) => {
-    e.stopPropagation();
-    const next = history.filter(h => h.id !== id);
-    setHistory(next);
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {}
-  };
-
-  const HistoryCard = ({ h, isMock = false }) => {
-    const isOpen = selected === h.id;
-    const items  = h.savedItems || h.mockItems || [];
-    return (
-      <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "16px 18px", border: `1px solid ${isOpen ? T.primaryMid : T.border}`, boxShadow: isOpen ? T.shadowMd : T.shadow, cursor: "pointer", transition: "all 0.15s", opacity: isMock ? 0.7 : 1 }} onClick={() => setSelected(isOpen ? null : h.id)}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            {isMock
-              ? <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5, backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}` }}>Exemple</span>
-              : <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5, backgroundColor: T.successLight, color: T.success, border: `1px solid ${T.successBorder}` }}>Réel</span>
-            }
-            <span style={{ fontSize: 11.5, color: T.textSubtle, display: "flex", alignItems: "center", gap: 4 }}>
-              <Calendar size={11} /> {isMock ? h.date : formatHistoryDate(h.date)}
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {!isMock && (
-              <button onClick={e => deleteEntry(e, h.id)} title="Supprimer" style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textSubtle, display: "flex", alignItems: "center" }}
-                onMouseEnter={e => e.currentTarget.style.color = T.danger}
-                onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}>
-                <Trash2 size={12} />
-              </button>
-            )}
-            <ChevronDown size={14} color={T.textSubtle} style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-          </div>
-        </div>
-        <p style={{ fontSize: 12.5, color: T.text, lineHeight: 1.55, margin: "0 0 10px", fontStyle: "italic" }}>"{h.apercu}"</p>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: T.primaryLight, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, color: T.primary }}><Layers size={11} />{h.items} items</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#F3F4F6", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, color: T.textMuted }}><Timer size={11} />{h.framework}</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: T.successLight, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, color: T.success }}><Zap size={11} />{h.duree}</span>
-        </div>
-        {h.tags?.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {h.tags.map(tag => <span key={tag} style={{ fontSize: 10.5, color: T.textSubtle, backgroundColor: "#F5F5FA", borderRadius: 4, padding: "1px 6px", border: `1px solid ${T.border}` }}>#{tag}</span>)}
-          </div>
-        )}
-        {isOpen && (
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
-            {h.types?.length > 0 && <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>{h.types.map((t, i) => <TypeBadge key={i} type={t} />)}</div>}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={e => { e.stopPropagation(); if (items.length) onViewItems(items); }} disabled={!items.length} style={{ flex: 1, padding: "7px", backgroundColor: items.length ? T.primaryLight : "#F9FAFB", color: items.length ? T.primary : T.textSubtle, border: `1px solid ${items.length ? T.primaryMid + "44" : T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: items.length ? "pointer" : "not-allowed", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <Eye size={13} /> {items.length ? "Charger dans le backlog" : "Pas d'items"}
-              </button>
-              {items.length > 0 && (
-                <button onClick={e => { e.stopPropagation(); downloadFile(exportAsMarkdown(items), `analyse-${h.id}.md`, "text/markdown"); }} style={{ padding: "7px 12px", backgroundColor: "#F9FAFB", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
-                  <Download size={13} /> .md
-                </button>
-              )}
-              {items.length > 0 && (
-                <button onClick={e => { e.stopPropagation(); downloadFile(exportAsCSV(items), `analyse-${h.id}.csv`, "text/csv;charset=utf-8;"); }} style={{ padding: "7px 12px", backgroundColor: "#F9FAFB", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
-                  <Download size={13} /> .csv
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <div style={{ backgroundColor: T.sidebar, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}><Clock size={13} color="#fff" /></div>
-          Historique des analyses
-          <span style={{ fontSize: 12, fontWeight: 600, color: T.textMuted, backgroundColor: "#F3F4F6", borderRadius: 20, padding: "2px 11px" }}>{history.length}</span>
-        </h1>
-      </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "24px" }}>
-        {isEmpty ? (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: T.primaryLight, border: `1px solid ${T.primaryMid}44`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 20 }}>
-              <Sparkles size={14} color={T.primary} style={{ flexShrink: 0 }} />
-              <span style={{ fontSize: 12.5, color: T.primary }}>Lance ta première analyse — elle apparaîtra ici. Quelques exemples ci-dessous pour t'inspirer.</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {MOCK_HISTORY.map(h => <HistoryCard key={h.id} h={h} isMock />)}
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {history.map(h => <HistoryCard key={h.id} h={h} />)}
-            </div>
-            <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${T.border}` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 12 }}>EXEMPLES</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {MOCK_HISTORY.slice(0, 2).map(h => <HistoryCard key={h.id} h={h} isMock />)}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
     </>
   );
 }
@@ -2052,15 +2701,16 @@ function TipsBanner() {
 /* ─── APP HEADER ─────────────────────────────────────────────── */
 const NAV_ITEMS = [
   { id: "analyser",   label: "Analyser",   Icon: Sparkles  },
+  { id: "themes",     label: "Thèmes",     Icon: BookOpen  },
   { id: "board",      label: "Backlog",    Icon: Layout    },
-  { id: "historique", label: "Historique", Icon: Clock     },
   { id: "rapport",    label: "Rapport",    Icon: BarChart2 },
   { id: "settings",   label: "Paramètres", Icon: Settings2 },
 ];
 
-function AppHeader({ activeNav, setActiveNav, backlog }) {
+function AppHeader({ activeNav, setActiveNav, backlog, themes }) {
   const isMobile = useIsMobile();
   const boardCount = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length;
+  const themesCount = themes.filter(t => t.status !== "pousse-backlog").length;
 
   return (
     <header style={{
@@ -2084,7 +2734,7 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
         }}>
           {NAV_ITEMS.map(({ id, label, Icon }) => {
             const active = activeNav === id;
-            const badge = id === "board" ? boardCount : id === "historique" ? MOCK_HISTORY.length : 0;
+            const badge = id === "board" ? boardCount : id === "themes" ? themesCount : 0;
             return (
               <button key={id} onClick={() => setActiveNav(id)} style={{
                 display: "flex", alignItems: "center", gap: isMobile ? 0 : 6,
@@ -2136,16 +2786,33 @@ function AppHeader({ activeNav, setActiveNav, backlog }) {
 
 /* ─── APP ────────────────────────────────────────────────────── */
 export default function App() {
-  const [activeNav, setActiveNav] = useState("analyser");
-  const [backlog, setBacklog]     = useState(MOCK_KANBAN);
+  const [activeNav, setActiveNav]     = useState("analyser");
+  const [backlog, setBacklogRaw]       = useState(loadBacklog);
+  const [feedbackInbox, setInboxRaw]  = useState(loadInbox);
+  const [themes, setThemesRaw]        = useState(loadThemes);
+  const [pendingHighlight, setPendingHighlight] = useState(null);
 
-  const goToBacklog = () => setActiveNav("board");
-  const navigateToBacklog = (items) => { setBacklog(items); setActiveNav("board"); };
+  const setBacklog        = (next) => { setBacklogRaw(next); saveBacklog(next); };
+  const setFeedbackInbox  = (next) => { setInboxRaw(next); saveInbox(next); };
+  const setThemes         = (next) => { setThemesRaw(next); saveThemes(next); };
+
+  const goToThemes  = () => setActiveNav("themes");
+  const loadDemoData = () => { setBacklog(MOCK_KANBAN); setThemes(MOCK_THEMES); setFeedbackInbox(MOCK_INBOX); setActiveNav("themes"); };
+  const goToBacklogItem = (id) => { setPendingHighlight(id); setActiveNav("board"); };
+
+  /* Deep-link depuis un lien externe (ex : rapport PowerPoint) — ?item=<id> */
+  useEffect(() => {
+    const itemId = new URLSearchParams(window.location.search).get("item");
+    if (itemId) {
+      goToBacklogItem(itemId);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const PAGES = {
-    analyser:   <PageAnalyser backlog={backlog} onSetBacklog={setBacklog} onComplete={goToBacklog} />,
-    board:      <PageGlobalBoard backlog={backlog} onSetBacklog={setBacklog} />,
-    historique: <PageHistorique onViewItems={navigateToBacklog} />,
+    analyser:   <PageAnalyser themes={themes} feedbackInbox={feedbackInbox} onSetThemes={setThemes} onSetInbox={setFeedbackInbox} onComplete={goToThemes} onLoadDemo={loadDemoData} />,
+    themes:     <PageThemes themes={themes} feedbackInbox={feedbackInbox} backlog={backlog} onSetThemes={setThemes} onSetInbox={setFeedbackInbox} onSetBacklog={setBacklog} onGoToBacklogItem={goToBacklogItem} />,
+    board:      <PageGlobalBoard backlog={backlog} onSetBacklog={setBacklog} initialHighlight={pendingHighlight} onHighlightConsumed={() => setPendingHighlight(null)} />,
     rapport:    <PageRapport />,
     settings:   <PageParametres />,
   };
@@ -2168,7 +2835,7 @@ export default function App() {
       `}</style>
 
       <TipsBanner />
-      <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} />
+      <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} themes={themes} />
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {PAGES[activeNav]}
