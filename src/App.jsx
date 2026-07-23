@@ -2053,7 +2053,7 @@ function ThemeGroupedView({ themes, feedbackInbox, framework, onOpenDetail, onPu
 }
 
 /* ─── THÈMES : panneau détail ──────────────────────────────────── */
-function ThemeDetailPanel({ theme, feedbackItems, onUpdate, onDelete, onPush, pushing, onGoToBacklogItem, onClose }) {
+function ThemeDetailPanel({ theme, feedbackItems, onUpdate, onUpdateFeedback, onDelete, onPush, pushing, onGoToBacklogItem, onClose }) {
   const [confirmDelete, setConfirm] = useState(false);
   const cfg = THEME_STATUS_CFG[theme.status] || THEME_STATUS_CFG["nouveau-signal"];
   const sources = [...new Set(feedbackItems.map(f => f.source || "Autre"))];
@@ -2095,7 +2095,13 @@ function ThemeDetailPanel({ theme, feedbackItems, onUpdate, onDelete, onPush, pu
             const scfg = SOURCE_CFG[src] || SOURCE_CFG["Autre"];
             return (
               <div key={fb.id} style={{ backgroundColor: "#FAFAFD", border: `1px solid ${T.borderSubtle}`, borderRadius: T.radiusSm, padding: "10px 12px" }}>
-                <span style={{ display: "inline-block", fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}`, marginBottom: 6 }}>{src}</span>
+                <select
+                  value={src}
+                  onChange={e => onUpdateFeedback?.(fb.id, { source: e.target.value })}
+                  title="Changer la source de ce feedback"
+                  style={{ display: "block", fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}`, marginBottom: 6, cursor: "pointer", fontFamily: "inherit", outline: "none" }}>
+                  {FEEDBACK_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
                 <div style={{ fontSize: 12.5, color: T.text, lineHeight: 1.55, marginBottom: 6 }}>{fb.texte}</div>
                 {fb.painPoint && <div style={{ fontSize: 11.5, color: T.primary, fontWeight: 600 }}>→ {fb.painPoint}</div>}
               </div>
@@ -2156,6 +2162,8 @@ function PageThemes({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, o
   const detailTheme = detailId ? themes.find(t => t.id === detailId) : null;
 
   const handleUpdate = (updated) => onSetThemes(themes.map(t => t.id === updated.id ? updated : t));
+
+  const handleUpdateFeedback = (fbId, patch) => onSetInbox(feedbackInbox.map(f => f.id === fbId ? { ...f, ...patch } : f));
 
   const handleDelete = (id) => {
     onSetInbox(feedbackInbox.map(fb => fb.themeId === id ? { ...fb, themeId: null } : fb));
@@ -2233,6 +2241,7 @@ function PageThemes({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, o
           theme={detailTheme}
           feedbackItems={feedbackInbox.filter(f => detailTheme.feedbackIds.includes(f.id))}
           onUpdate={handleUpdate}
+          onUpdateFeedback={handleUpdateFeedback}
           onDelete={handleDelete}
           onPush={handlePush}
           pushing={pushingId === detailTheme.id}
