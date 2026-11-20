@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Lightbulb, X } from "lucide-react";
-import logoSrc from "../assets/logo.png";
+import logoSrc from "../assets/logo.svg";
 import { useIsMobile } from "../ds/useIsMobile.js";
 
 /* Scène en dégradé → cadre arrondi → sidebar sombre + zone principale.
@@ -25,7 +25,7 @@ export default function Shell({ items, active, onNavigate, counts = {}, tip, sav
         {!compact && (
           <aside className="ds-sidebar" aria-label="Navigation principale">
             <button className="ds-ws" onClick={() => onNavigate("analyser")} title="Retour à Analyser">
-              <img src={logoSrc} alt="" width={38} height={38} style={{ borderRadius: 11, objectFit: "cover" }} />
+              <img src={logoSrc} alt="" width={40} height={40} style={{ flexShrink: 0 }} />
               <span style={{ display: "flex", flexDirection: "column" }}>
                 <span className="ds-ws__name">FeedbackPO</span>
                 <span className="ds-ws__sub">Espace Product Owner</span>

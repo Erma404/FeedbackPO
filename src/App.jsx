@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import logoSrc from "./assets/logo.png";
 import { T, alpha } from "./ds/tokens.js";
 import { useIsMobile } from "./ds/useIsMobile.js";
 import Shell from "./shell/Shell.jsx";
