@@ -381,8 +381,9 @@ function ACEditor({ criteres, onChange }) {
     setRefining(idx);
     try {
       const res = await callClaude(JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: `Reformule ce critère d'acceptation pour le rendre plus testable (verbe d'action + condition + résultat mesurable). Réponds UNIQUEMENT avec le critère reformulé.\n\nCritère : "${ac}"` }] }));
-      const data = await res.json();
-      setPreview({ idx, refined: data.content?.[0]?.text?.trim() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setPreview({ idx, error: data?.error?.message || "L'affinage a échoué. Réessaie plus tard." });
+      else setPreview({ idx, refined: data.content?.[0]?.text?.trim() });
     } catch { } finally { setRefining(null); }
   };
 
@@ -404,7 +405,14 @@ function ACEditor({ criteres, onChange }) {
           </div>
         </div>
       ))}
-      {preview && (
+      {preview?.error && (
+        <div className="ds-block" data-tone="warning" role="alert" style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+          <AlertCircle size={17} color="var(--ds-warning-text)" style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 14, color: "var(--ds-warning-text)", lineHeight: 1.5 }}>{preview.error}</span>
+          <Button variant="ghost" style={{ height: 34 }} onClick={() => setPreview(null)}>Fermer</Button>
+        </div>
+      )}
+      {preview && !preview.error && (
         <div className="ds-block" data-tone="primary" style={{ marginBottom: 10 }}>
           <div className="ds-block__t" style={{ color: "var(--ds-primary-strong)" }}>Reformulation Claude</div>
           <div style={{ fontSize: 14.5, color: "var(--ds-text)", lineHeight: 1.55, marginBottom: 12 }}>{preview.refined}</div>
@@ -1350,7 +1358,7 @@ async function clusterFeedback(feedbackText, openThemes) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     if (res.status === 401 || res.status === 403 || res.status === 500 || res.status === 502) throw new Error(err?.error?.message || "Service IA indisponible côté serveur.");
-    if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
+    if (res.status === 429 || res.status === 503) throw new Error(err?.error?.message || "Limite d'usage atteinte. Réessaie plus tard.");
     throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
   }
   const data = await res.json();
@@ -1368,7 +1376,7 @@ async function pushThemeToBacklog({ theme, feedbackEntries, backlog, framework =
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     if (res.status === 401 || res.status === 403 || res.status === 500 || res.status === 502) throw new Error(err?.error?.message || "Service IA indisponible côté serveur.");
-    if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
+    if (res.status === 429 || res.status === 503) throw new Error(err?.error?.message || "Limite d'usage atteinte. Réessaie plus tard.");
     throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
   }
   const data   = await res.json();

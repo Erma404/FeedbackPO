@@ -36,7 +36,23 @@ La clé Anthropic reste **côté serveur** : le navigateur appelle `/api/claude`
 - En local : copier `.env.example` en `.env` et renseigner `ANTHROPIC_API_KEY`, puis `npm run dev` (Vite relaie `/api/claude`).
 - En production : définir `ANTHROPIC_API_KEY` dans Vercel (Settings > Environment Variables).
 
-Le proxy n'accepte que la même origine, deux modèles, `max_tokens` plafonné à 4096 et une taille d'entrée limitée. Il n'y a pas de limitation de débit : toute personne qui ouvre l'app peut consommer du crédit. À protéger par une authentification avant tout usage public.
+Le proxy n'accepte que la même origine, deux modèles, `max_tokens` plafonné à 4096 et 20 000 caractères d'entrée.
+
+### Limites d'usage
+
+Des quotas protègent ton crédit Anthropic (`api/_ratelimit.js`), comptés dans Upstash Redis. Un appel léger vaut 1 unité, un push vers le backlog (Sonnet, sortie longue) en vaut 5.
+
+| Plafond | Par défaut | Variable |
+|---|---|---|
+| Par personne et par heure | 25 unités | `LIMIT_IP_HOUR` |
+| Par personne et par jour | 50 unités | `LIMIT_IP_DAY` |
+| Global par jour (UTC) | 400 unités | `LIMIT_GLOBAL_DAY` |
+
+- Mise en place : ajouter l'intégration **Upstash Redis** depuis le Marketplace Vercel (elle crée `KV_REST_API_URL` et `KV_REST_API_TOKEN`), puis redéployer.
+- Sans compteur disponible, le proxy **refuse** les appels (503) plutôt que de les laisser passer.
+- Les adresses IP sont hachées avant stockage. Les compteurs expirent seuls.
+- Le mode démo n'appelle pas l'IA : il reste utilisable quand un quota est atteint.
+- Ces limites réduisent le risque, elles ne le suppriment pas : fixe aussi un plafond de dépense mensuel dans la console Anthropic.
 
 ## Technique
 
