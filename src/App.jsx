@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { T, alpha } from "./ds/tokens.js";
 import { useIsMobile } from "./ds/useIsMobile.js";
+import { callClaude } from "./lib/claude.js";
 import Shell from "./shell/Shell.jsx";
 import AnalyserView from "./pages/AnalyserView.jsx";
 import { Button, Card, Eyebrow, Pill, Ring, Segmented, PageHeader, Toggle } from "./ds/primitives.jsx";
@@ -379,11 +380,7 @@ function ACEditor({ criteres, onChange }) {
   const refineAC = async (ac, idx) => {
     setRefining(idx);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: `Reformule ce critère d'acceptation pour le rendre plus testable (verbe d'action + condition + résultat mesurable). Réponds UNIQUEMENT avec le critère reformulé.\n\nCritère : "${ac}"` }] })
-      });
+      const res = await callClaude(JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: `Reformule ce critère d'acceptation pour le rendre plus testable (verbe d'action + condition + résultat mesurable). Réponds UNIQUEMENT avec le critère reformulé.\n\nCritère : "${ac}"` }] }));
       const data = await res.json();
       setPreview({ idx, refined: data.content?.[0]?.text?.trim() });
     } catch { } finally { setRefining(null); }
@@ -1349,14 +1346,10 @@ async function clusterFeedback(feedbackText, openThemes) {
     ? `\n\n--- THÈMES EXISTANTS (${openThemes.length}) ---\n` +
       openThemes.map(t => `[${t.id}] ${t.titre} — ${t.description}`).join("\n")
     : "";
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400, system: THEME_CLUSTER_PROMPT, messages: [{ role: "user", content: `Feedback:\n${feedbackText}${ctx}` }] })
-  });
+  const res = await callClaude(JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400, system: THEME_CLUSTER_PROMPT, messages: [{ role: "user", content: `Feedback:\n${feedbackText}${ctx}` }] }));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    if (res.status === 401) throw new Error("Clé API invalide (VITE_ANTHROPIC_API_KEY).");
+    if (res.status === 401 || res.status === 403 || res.status === 500 || res.status === 502) throw new Error(err?.error?.message || "Service IA indisponible côté serveur.");
     if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
     throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
   }
@@ -1371,14 +1364,10 @@ async function pushThemeToBacklog({ theme, feedbackEntries, backlog, framework =
     ? `\n\n--- BACKLOG EXISTANT (${backlog.length} items — détecte les doublons) ---\n` +
       backlog.slice(0, 30).map(i => `[${i.id}] [${i.type}] ${i.titre}`).join("\n")
     : "";
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system: THEME_TO_BACKLOG_PROMPT, messages: [{ role: "user", content: `Framework: ${framework}\nThème : "${theme.titre}"\n\nFeedbacks regroupés (${feedbackEntries.length}) :\n${feedbackBlock}${existingCtx}` }] })
-  });
+  const res = await callClaude(JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system: THEME_TO_BACKLOG_PROMPT, messages: [{ role: "user", content: `Framework: ${framework}\nThème : "${theme.titre}"\n\nFeedbacks regroupés (${feedbackEntries.length}) :\n${feedbackBlock}${existingCtx}` }] }));
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    if (res.status === 401) throw new Error("Clé API invalide (VITE_ANTHROPIC_API_KEY).");
+    if (res.status === 401 || res.status === 403 || res.status === 500 || res.status === 502) throw new Error(err?.error?.message || "Service IA indisponible côté serveur.");
     if (res.status === 429) throw new Error("Quota dépassé — vérifiez console.anthropic.com.");
     throw new Error(`Erreur ${res.status} : ${err?.error?.message || "Réessayez."}`);
   }
@@ -2241,8 +2230,7 @@ function PageParametres() {
           <SettingsCard icon={Key} title="Modèle Claude" sub="Plus le modèle est puissant, plus l'analyse est fine et lente.">
             <Segmented label="Modèle Claude" options={["Haiku", "Sonnet · recommandé", "Opus"]} value={model} onChange={setModel} />
             <p style={{ fontSize: 14, color: "var(--ds-text-secondary)", lineHeight: 1.6, marginTop: 16 }}>
-              La clé API se configure via la variable d'environnement <code style={code}>VITE_ANTHROPIC_API_KEY</code> dans le fichier <code style={code}>.env</code>.
-            </p>
+              La clé API reste côté serveur (variable <code style={code}>ANTHROPIC_API_KEY</code> de Vercel, ou <code style={code}>.env</code> en local). Elle n'est jamais envoyée au navigateur.</p>
           </SettingsCard>
 
           <SettingsCard icon={Zap} title="Vélocité d'équipe" sub="Sert à convertir les Story Points en temps.">

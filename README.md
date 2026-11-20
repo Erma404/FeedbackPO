@@ -29,6 +29,15 @@ Les feedbacks arrivent en vrac, mal formulés, parfois contradictoires. Les tran
 
 Prototype (MVP). La qualité dépend du prompt et du modèle, et chaque élément généré reste à relire et à arbitrer par un humain.
 
+## Configuration de la clé API
+
+La clé Anthropic reste **côté serveur** : le navigateur appelle `/api/claude` (fonction Vercel dans `api/claude.js`), qui ajoute la clé et relaie la requête. Ne jamais nommer cette variable avec le préfixe `VITE_` : elle serait incorporée au code public.
+
+- En local : copier `.env.example` en `.env` et renseigner `ANTHROPIC_API_KEY`, puis `npm run dev` (Vite relaie `/api/claude`).
+- En production : définir `ANTHROPIC_API_KEY` dans Vercel (Settings > Environment Variables).
+
+Le proxy n'accepte que la même origine, deux modèles, `max_tokens` plafonné à 4096 et une taille d'entrée limitée. Il n'y a pas de limitation de débit : toute personne qui ouvre l'app peut consommer du crédit. À protéger par une authentification avant tout usage public.
+
 ## Technique
 
 React, Vite, lucide-react.
