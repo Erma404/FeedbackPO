@@ -1,0 +1,90 @@
+/* ═══════════════════════════════════════════════════════════════
+   FeedbackPO — Design System · Amethyst
+   Trois couches :
+   1. --ds-*  primitives de marque (valeurs brutes, jamais utilisées direct dans l'UI)
+   2. --c-*   tokens sémantiques (ce que l'UI consomme). Alignés sur Amethyst.
+   3. espacement, rayons, élévation, mouvement, typo
+   Règle : le calme par défaut, un seul accent, la couleur n'apparaît que
+   quand elle signifie quelque chose (statut, donnée mise en avant).
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* ── 1. Primitives Amethyst ─────────────────────────────────── */
+  --ds-primary:        #7C5CE0;
+  --ds-primary-strong: #5B3FC9;
+  --ds-primary-soft:   #F1EDFF;
+  --ds-nav-deep:       #2A1B6B;
+  --ds-hero-base:      #3B2594;
+  --ds-hero-end:       #1A1040;
+  --ds-accent-lavender:#9B82F2;
+  --ds-accent-pink:    #F0A0EA;
+  --ds-accent-butter:  #FBE9A0;
+  --ds-highlight:      #F6DDF7;
+
+  --ds-canvas:         #F4F2FB;
+  --ds-surface:        #FFFFFF;
+  --ds-surface-muted:  #F1EFF8;
+  --ds-border:         #E6E2F2;
+  --ds-text:           #1B1535;
+  --ds-text-secondary: #54507A;
+  --ds-text-muted:     #7E7A9C;   /* labels uniquement, jamais en corps de texte */
+
+  --ds-success:        #1F9D4B;  --ds-success-bg: #E3F8E9;  --ds-success-text: #167A3B;
+  --ds-warning:        #F0A30A;  --ds-warning-bg: #FEF3CC;  --ds-warning-text: #8F5206;
+  --ds-danger:         #D93636;  --ds-danger-bg:  #FDE6E6;  --ds-danger-text:  #A82424;
+
+  --ds-grad-brand:   linear-gradient(135deg, #7C5CE0 0%, #F0A0EA 60%, #FBE9A0 100%);
+  --ds-grad-hero:    linear-gradient(120deg, #3B2594 0%, #5B3FC9 55%, #1A1040 100%);
+  --ds-grad-ring:    linear-gradient(180deg, #9B82F2 0%, #5B3FC9 100%);
+  --ds-grad-stage:   linear-gradient(160deg, #8F73F0 0%, #E7A1EE 55%, #FBE9A0 100%);
+
+  /* ── 2. Sémantique (valeurs actuelles = rendu historique) ───── */
+  --c-bg:            #F4F2FB;
+  --c-sidebar:       #FFFFFF;
+  --c-card:          #FFFFFF;
+  --c-border:        #E6E2F2;
+  --c-border-subtle: #EFECF8;
+  --c-primary:       #5B3FC9;
+  --c-primary-hover: #4A31B0;
+  --c-primary-light: #F1EDFF;
+  --c-primary-mid:   #D4C9F7;
+  --c-text:          #1B1535;
+  --c-text-muted:    #54507A;
+  --c-text-subtle:   #7E7A9C;
+  --c-success:       #16A34A;  --c-success-light: #F0FDF4;  --c-success-border: #BBF7D0;
+  --c-warning:       #D97706;  --c-warning-light: #FFFBEB;  --c-warning-border: #FDE68A;
+  --c-danger:        #DC2626;  --c-danger-light:  #FEF2F2;  --c-danger-border:  #FECACA;
+  --c-orange:        #EA580C;  --c-orange-light:  #FFF4ED;  --c-orange-border:  #FED7AA;
+  --c-gradient:      linear-gradient(135deg, #5B3FC9 0%, #7C5CE0 100%);
+  --c-gradient-hero: linear-gradient(135deg, #F1EDFF 0%, #F7F4FF 55%, #FDF4FF 100%);
+
+  /* ── 3. Espacement (échelle Atrium) ─────────────────────────── */
+  --space-4: 4px;  --space-8: 8px;  --space-12: 12px; --space-16: 16px;
+  --space-20: 20px; --space-24: 24px; --space-32: 32px; --space-36: 36px;
+
+  /* ── Rayons ─────────────────────────────────────────────────── */
+  --radius-xs: 6px;  --radius-sm: 8px;  --radius-md: 12px; --radius-lg: 16px;
+  --radius-xl: 22px; --radius-card: 28px; --radius-full: 999px;
+
+  /* ── Élévation ──────────────────────────────────────────────── */
+  --elev-1: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --elev-2: 0 4px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.05);
+  --elev-3: 0 8px 24px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06);
+  --elev-4: 0 24px 60px rgba(27,21,53,.22), 0 4px 12px rgba(27,21,53,.08);
+  --elev-glow: 0 4px 14px rgba(92,95,212,.30);
+
+  /* ── Mouvement ──────────────────────────────────────────────── */
+  --dur-fast: 150ms; --dur-base: 200ms; --dur-slow: 280ms; --dur-data: 600ms;
+  --ease-out: cubic-bezier(.22,1,.36,1);
+  --transition: all var(--dur-fast) ease;
+
+  /* ── Typo ───────────────────────────────────────────────────── */
+  --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; --dur-data: 0ms; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+:focus-visible { outline: 2px solid var(--ds-primary-strong); outline-offset: 2px; border-radius: 4px; }

@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import logoSrc from "./assets/logo.png";
+import { T, alpha } from "./ds/tokens.js";
+import { useIsMobile } from "./ds/useIsMobile.js";
+import Shell from "./shell/Shell.jsx";
+import AnalyserView from "./pages/AnalyserView.jsx";
+import { Button, Card, Eyebrow, Pill, Ring, Segmented, PageHeader, Toggle } from "./ds/primitives.jsx";
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   closestCorners, useDroppable,
@@ -19,26 +24,7 @@ import {
   Layout, Pencil, Copy, Bug, Lightbulb, Trash2,
 } from "lucide-react";
 
-/* ─── TOKENS ─────────────────────────────────────────────────── */
-const T = {
-  bg: "#F6F6FB", sidebar: "#FFFFFF", card: "#FFFFFF",
-  border: "#E8E8F0", borderSubtle: "#F0F0F8",
-  primary: "#5C5FD4", primaryHover: "#4649B8",
-  primaryLight: "#EEEEFF", primaryMid: "#C7C8F5",
-  text: "#111827", textMuted: "#6B7280", textSubtle: "#9CA3AF",
-  success: "#16A34A", successLight: "#F0FDF4", successBorder: "#BBF7D0",
-  warning: "#D97706", warningLight: "#FFFBEB", warningBorder: "#FDE68A",
-  danger: "#DC2626", dangerLight: "#FEF2F2", dangerBorder: "#FECACA",
-  orange: "#EA580C", orangeLight: "#FFF4ED", orangeBorder: "#FED7AA",
-  radius: "12px", radiusSm: "8px", radiusLg: "16px",
-  shadow: "0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04)",
-  shadowMd: "0 4px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.05)",
-  shadowLg: "0 8px 24px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06)",
-  shadowPrimary: "0 4px 14px rgba(92,95,212,.30)",
-  transition: "all 0.15s ease",
-  gradient: "linear-gradient(135deg, #5C5FD4 0%, #8B5CF6 100%)",
-  gradientHero: "linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 55%, #FDF4FF 100%)",
-};
+/* ─── TOKENS : src/ds/tokens.css (source de vérité) ───────────── */
 
 const TYPE_CFG = {
   Epic:         { bg: "#FFF4ED", color: "#C2410C", dot: "#F97316", badge: "#FED7AA" },
@@ -213,16 +199,6 @@ const getKanbanItems = (backlog, filter) => {
 };
 
 /* ─── RESPONSIVE HOOK ───────────────────────────────────────── */
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => window.innerWidth < 700);
-  useEffect(() => {
-    const fn = () => setMobile(window.innerWidth < 700);
-    window.addEventListener("resize", fn);
-    return () => window.removeEventListener("resize", fn);
-  }, []);
-  return mobile;
-}
-
 /* ─── MOCK DATA ─────────────────────────────────────────────── */
 const MOCK_KANBAN = [
   {
@@ -353,8 +329,8 @@ function TypeBadge({ type }) {
   const c = TYPE_CFG[type] || TYPE_CFG["User Story"];
   const IconEl = type === "Bug" ? Bug : type === "Spike" ? Lightbulb : null;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, backgroundColor: c.bg, color: c.color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, border: `1px solid ${c.badge}` }}>
-      {IconEl ? <IconEl size={10} /> : <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: c.dot }} />}
+    <span className="ds-pill">
+      {IconEl ? <IconEl size={13} color={c.dot} /> : <span style={{ width: 7, height: 7, borderRadius: "50%", background: c.dot }} />}
       {type}
     </span>
   );
@@ -362,30 +338,18 @@ function TypeBadge({ type }) {
 
 function StatusBadge({ status }) {
   const s = STATUS_CFG[status] || STATUS_CFG["en-affinage"];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: s.bg, color: s.color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, border: `1px solid ${s.border}` }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: s.dot }} />
-      {s.label}
-    </span>
-  );
+  return <span className="ds-pill"><span style={{ width: 7, height: 7, borderRadius: "50%", background: s.dot }} />{s.label}</span>;
 }
 
 function SPBadge({ sp, onClick }) {
-  if (!sp) return (
-    <button onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: T.orangeLight, color: T.orange, borderRadius: 6, padding: "2px 9px", fontSize: 11, fontWeight: 600, border: `1px solid ${T.orangeBorder}`, cursor: "pointer", fontFamily: "inherit" }}>
-      <AlertTriangle size={10} /> Non estimé
-    </button>
-  );
-  return (
-    <button onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: T.primaryLight, color: T.primary, borderRadius: 6, padding: "2px 9px", fontSize: 11, fontWeight: 600, border: `1px solid ${T.primaryMid}44`, cursor: "pointer", fontFamily: "inherit" }}>
-      ⚡ {sp} SP — {spHint(sp)}
-    </button>
-  );
+  const Tag = onClick ? "button" : "span";
+  if (!sp) return <Tag className="ds-pill" data-tone="warning" onClick={onClick}><AlertTriangle size={13} /> Non estimé</Tag>;
+  return <Tag className="ds-pill" data-tone="primary" onClick={onClick}><Zap size={13} /> {sp} SP · {spHint(sp)}</Tag>;
 }
 
-function Avatar({ initials = "EM", size = 20 }) {
+function Avatar({ initials = "EM", size = 24 }) {
   return (
-    <span title="Ernestine Matjabo" style={{ width: size, height: size, borderRadius: "50%", background: T.gradient, color: "#fff", fontSize: size * 0.42, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "1.5px solid #fff", boxShadow: "0 0 0 1px " + T.border, letterSpacing: "-0.02em" }}>
+    <span title="Ernestine Matjabo" style={{ width: size, height: size, borderRadius: "50%", background: "var(--ds-grad-brand)", color: "var(--ds-nav-deep)", fontSize: Math.max(10, size * 0.4), fontWeight: 600, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: "2px solid #fff", boxShadow: "0 0 0 1px var(--ds-border)" }}>
       {initials}
     </span>
   );
@@ -397,14 +361,14 @@ function InlineEdit({ value, onChange, multiline = false, placeholder = "Modifie
   const ref = useRef();
   useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
   const save = () => { setEditing(false); if (draft !== value) onChange(draft); };
-  const base = { fontSize: "inherit", fontFamily: "inherit", fontWeight: "inherit", color: "inherit", lineHeight: "inherit", background: "transparent", border: "none", outline: "none", width: "100%", resize: "none", padding: 0, margin: 0, ...style };
+  const base = { fontSize: "inherit", fontFamily: "inherit", fontWeight: "inherit", letterSpacing: "inherit", color: "inherit", lineHeight: "inherit", background: "transparent", border: "none", outline: "none", width: "100%", resize: "none", padding: 0, margin: 0, ...style };
   if (editing) {
     const El = multiline ? "textarea" : "input";
-    return <El ref={ref} value={draft} onChange={e => setDraft(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === "Escape") { setDraft(value); setEditing(false); } if (!multiline && e.key === "Enter") save(); }} style={{ ...base, border: `1px solid ${T.primary}`, borderRadius: 4, padding: "2px 6px", backgroundColor: T.primaryLight + "55", minHeight: multiline ? 60 : "auto" }} rows={multiline ? 3 : undefined} />;
+    return <El ref={ref} value={draft} onChange={e => setDraft(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === "Escape") { setDraft(value); setEditing(false); } if (!multiline && e.key === "Enter") save(); }} style={{ ...base, border: "1px solid var(--ds-primary)", borderRadius: 12, padding: "6px 10px", margin: "-7px -11px", width: "calc(100% + 22px)", background: "#fff", boxShadow: "0 0 0 4px rgba(124,92,224,.14)", minHeight: multiline ? 72 : "auto" }} rows={multiline ? 3 : undefined} />;
   }
   return (
     <span onClick={() => { setDraft(value); setEditing(true); }} title="Cliquer pour modifier" style={{ cursor: "text", display: "block", ...style }}>
-      {value || <span style={{ color: T.textSubtle, fontStyle: "italic" }}>{placeholder}</span>}
+      {value || <span style={{ color: "var(--ds-text-muted)" }}>{placeholder}</span>}
     </span>
   );
 }
@@ -433,48 +397,46 @@ function ACEditor({ criteres, onChange }) {
   return (
     <div>
       {criteres.map((ac, idx) => (
-        <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6, padding: "6px 8px", backgroundColor: "#FAFAFA", borderRadius: 6, border: `1px solid ${T.borderSubtle}` }}>
-          <span style={{ color: T.success, fontSize: 12, flexShrink: 0, marginTop: 2 }}>✓</span>
-          <InlineEdit value={ac} onChange={v => update(idx, v)} multiline style={{ flex: 1, fontSize: 12.5, color: "#374151", lineHeight: 1.5 }} placeholder="Saisir un critère…" />
-          <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+        <div key={idx} className="ds-ac">
+          <Check size={16} color="var(--ds-success)" style={{ flexShrink: 0, marginTop: 3 }} />
+          <InlineEdit value={ac} onChange={v => update(idx, v)} multiline style={{ flex: 1, fontSize: 14.5, color: "var(--ds-text)", lineHeight: 1.55 }} placeholder="Saisir un critère…" />
+          <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
             {refining === idx
-              ? <Loader2 size={12} color={T.primary} style={{ animation: "spin 1s linear infinite", marginTop: 3 }} />
-              : <button onClick={() => refineAC(ac, idx)} title="Affiner avec Claude" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: T.textSubtle }} onMouseEnter={e => e.currentTarget.style.color = T.primary} onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}><Sparkles size={11} /></button>}
-            <button onClick={() => remove(idx)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: T.textSubtle }} onMouseEnter={e => e.currentTarget.style.color = T.danger} onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}><X size={11} /></button>
+              ? <span className="ds-mini"><Loader2 size={16} color="var(--ds-primary)" style={{ animation: "spin 1s linear infinite" }} /></span>
+              : <button className="ds-mini" onClick={() => refineAC(ac, idx)} title="Affiner avec Claude" aria-label="Affiner avec Claude"><Sparkles size={16} /></button>}
+            <button className="ds-mini" onClick={() => remove(idx)} aria-label="Retirer le critère"><X size={16} /></button>
           </div>
         </div>
       ))}
       {preview && (
-        <div style={{ backgroundColor: T.primaryLight, border: `1px solid ${T.primaryMid}`, borderRadius: T.radiusSm, padding: "10px 12px", marginBottom: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.primary, marginBottom: 6 }}>REFORMULATION CLAUDE</div>
-          <div style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5, marginBottom: 8 }}>{preview.refined}</div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => { update(preview.idx, preview.refined); setPreview(null); }} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", backgroundColor: T.success, color: "#fff", border: "none", borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}><Check size={11} /> Accepter</button>
-            <button onClick={() => setPreview(null)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit" }}><X size={11} /> Ignorer</button>
+        <div className="ds-block" data-tone="primary" style={{ marginBottom: 10 }}>
+          <div className="ds-block__t" style={{ color: "var(--ds-primary-strong)" }}>Reformulation Claude</div>
+          <div style={{ fontSize: 14.5, color: "var(--ds-text)", lineHeight: 1.55, marginBottom: 12 }}>{preview.refined}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button style={{ height: 38 }} onClick={() => { update(preview.idx, preview.refined); setPreview(null); }}><Check size={15} /> Accepter</Button>
+            <Button variant="secondary" style={{ height: 38 }} onClick={() => setPreview(null)}>Ignorer</Button>
           </div>
         </div>
       )}
-      <button onClick={add} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: T.primary, backgroundColor: "transparent", border: `1px dashed ${T.primaryMid}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
-        <Plus size={11} /> Ajouter un critère
-      </button>
+      <Button variant="ghost" onClick={add} style={{ paddingLeft: 4 }}><Plus size={16} /> Ajouter un critère</Button>
     </div>
   );
 }
 
 function SPPicker({ value, onChange, onClose }) {
   return (
-    <div style={{ position: "absolute", zIndex: 50, top: "100%", left: 0, marginTop: 4, backgroundColor: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadowMd, padding: 10, display: "flex", flexWrap: "wrap", gap: 5, width: 220 }}>
+    <div className="ds-menu" style={{ right: "auto", left: 0, padding: 12, display: "flex", flexWrap: "wrap", gap: 6, width: 280 }}>
       {SP_SCALE.map(({ v, hint }) => (
-        <button key={v} onClick={() => { onChange(v); onClose(); }} style={{ padding: "5px 10px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", backgroundColor: value === v ? T.primary : T.primaryLight, color: value === v ? "#fff" : T.primary, border: `1px solid ${value === v ? T.primary : T.primaryMid}44` }}>
-          {v} <span style={{ fontSize: 10, opacity: 0.7 }}>{hint}</span>
+        <button key={v} onClick={() => { onChange(v); onClose(); }} style={{ width: "auto", height: 38, padding: "0 12px", borderRadius: 999, fontWeight: 600, background: value === v ? "var(--ds-primary)" : "var(--ds-primary-soft)", color: value === v ? "#fff" : "var(--ds-primary-strong)" }}>
+          {v} <span style={{ fontSize: 12, fontWeight: 400, opacity: .8 }}>{hint}</span>
         </button>
       ))}
-      {value && <button onClick={() => { onChange(null); onClose(); }} style={{ padding: "5px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "inherit", backgroundColor: T.dangerLight, color: T.danger, border: `1px solid ${T.dangerBorder}`, width: "100%" }}>Effacer</button>}
+      {value && <button onClick={() => { onChange(null); onClose(); }} style={{ justifyContent: "center", color: "var(--ds-danger-text)", background: "var(--ds-danger-bg)" }}>Effacer l'estimation</button>}
     </div>
   );
 }
 
-/* ─── COMMENT THREAD (fixed layout) ─────────────────────────── */
+/* ─── COMMENT THREAD ─────────────────────────────────────────── */
 function CommentThread({ commentaires, onChange }) {
   const [draft, setDraft] = useState("");
   const [type, setType]   = useState("note");
@@ -485,30 +447,29 @@ function CommentThread({ commentaires, onChange }) {
   };
   return (
     <div>
-      {commentaires.map(c => {
-        const ct = COMMENT_TYPES[c.type] || COMMENT_TYPES.note;
-        return (
-          <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <div style={{ width: 3, backgroundColor: ct.color, borderRadius: 99, flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: ct.color, backgroundColor: ct.bg, border: `1px solid ${ct.border}`, borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{ct.label}</span>
-                <span style={{ fontSize: 10.5, color: T.textSubtle }}>{c.date}</span>
+      <div style={{ display: "grid", gap: 14, marginBottom: commentaires.length ? 16 : 0 }}>
+        {commentaires.map(c => {
+          const ct = COMMENT_TYPES[c.type] || COMMENT_TYPES.note;
+          return (
+            <div key={c.id} style={{ display: "flex", gap: 12 }}>
+              <div style={{ width: 3, background: ct.color, borderRadius: 99, flexShrink: 0, opacity: .55 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: ct.color }}>{ct.label}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--ds-text-muted)" }}>{c.date}</span>
+                </div>
+                <p style={{ fontSize: 14.5, color: "var(--ds-text)", lineHeight: 1.55, margin: 0, wordBreak: "break-word" }}>{c.texte}</p>
               </div>
-              <p style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5, margin: 0, wordBreak: "break-word" }}>{c.texte}</p>
             </div>
-          </div>
-        );
-      })}
-      {/* Stacked layout: select above, input+button below */}
-      <div style={{ marginTop: 8 }}>
-        <select value={type} onChange={e => setType(e.target.value)} style={{ width: "100%", fontSize: 11.5, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 8px", backgroundColor: "#FAFAFA", fontFamily: "inherit", color: T.text, marginBottom: 6 }}>
-          {Object.entries(COMMENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} placeholder="Ajouter un commentaire…" style={{ flex: 1, minWidth: 0, fontSize: 12.5, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", fontFamily: "inherit", outline: "none", backgroundColor: "#FAFAFA" }} />
-          <button onClick={add} style={{ flexShrink: 0, padding: "5px 12px", backgroundColor: T.primary, color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 }}>↵</button>
-        </div>
+          );
+        })}
+      </div>
+      <select className="ds-select" value={type} onChange={e => setType(e.target.value)} aria-label="Type de commentaire" style={{ marginBottom: 10 }}>
+        {Object.entries(COMMENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+      </select>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input className="ds-input" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} placeholder="Ajouter un commentaire…" style={{ flex: 1, minWidth: 0 }} />
+        <Button onClick={add} disabled={!draft.trim()} aria-label="Envoyer" style={{ padding: "0 18px" }}><ArrowRight size={17} /></Button>
       </div>
     </div>
   );
@@ -532,31 +493,32 @@ function PrototypePanel({ prototypes, onChange }) {
   };
   const updateCaption = (id, caption) => onChange(prototypes.map(p => p.id === id ? { ...p, caption } : p));
   const remove        = (id)          => onChange(prototypes.filter(p => p.id !== id));
+  const mini = { position: "absolute", top: 6, width: 26, height: 26, borderRadius: 9, border: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(27,21,53,.6)" };
   return (
     <div>
       {prototypes.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
           {prototypes.map(p => (
-            <div key={p.id} style={{ position: "relative", width: 80 }}>
+            <div key={p.id} style={{ position: "relative", width: 132 }}>
               {p.type === "image"
-                ? <img src={p.src} alt={p.caption} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: T.radiusSm, border: `1px solid ${T.border}` }} />
-                : <div style={{ width: 80, height: 56, borderRadius: T.radiusSm, border: `1px solid ${T.border}`, backgroundColor: T.primaryLight, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}><Link size={16} color={T.primary} /><span style={{ fontSize: 9, color: T.primary, fontWeight: 600 }}>Lien</span></div>}
-              <button onClick={() => navigator.clipboard.writeText(p.src)} title="Copier" style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: 3, backgroundColor: "rgba(0,0,0,.5)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Copy size={8} color="#fff" /></button>
-              <button onClick={() => remove(p.id)} style={{ position: "absolute", top: 2, left: 2, width: 16, height: 16, borderRadius: 3, backgroundColor: "rgba(220,38,38,.7)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={8} color="#fff" /></button>
-              <input value={p.caption} onChange={e => updateCaption(p.id, e.target.value)} placeholder="Légende…" style={{ width: "100%", fontSize: 9.5, border: "none", outline: "none", backgroundColor: "transparent", color: T.textMuted, marginTop: 3, fontFamily: "inherit" }} />
+                ? <img src={p.src} alt={p.caption} style={{ width: 132, height: 92, objectFit: "cover", borderRadius: 16, border: "1px solid var(--ds-border)" }} />
+                : <div style={{ width: 132, height: 92, borderRadius: 16, background: "var(--ds-primary-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, color: "var(--ds-primary-strong)" }}><Link size={22} /><span style={{ fontSize: 13, fontWeight: 500 }}>Lien</span></div>}
+              <button onClick={() => navigator.clipboard.writeText(p.src)} title="Copier" aria-label="Copier" style={{ ...mini, right: 6 }}><Copy size={13} color="#fff" /></button>
+              <button onClick={() => remove(p.id)} aria-label="Retirer" style={{ ...mini, left: 6, background: "rgba(217,54,54,.8)" }}><X size={13} color="#fff" /></button>
+              <input value={p.caption} onChange={e => updateCaption(p.id, e.target.value)} placeholder="Légende…" style={{ width: "100%", fontSize: 13, border: "none", outline: "none", background: "transparent", color: "var(--ds-text-secondary)", marginTop: 6, fontFamily: "inherit" }} />
             </div>
           ))}
         </div>
       )}
-      <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={() => fileRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}><Upload size={11} /> Image</button>
-        <button onClick={() => setShowUrl(!showUrl)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}><Link size={11} /> URL / Figma</button>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Button variant="secondary" style={{ height: 40 }} onClick={() => fileRef.current?.click()}><Upload size={15} /> Image</Button>
+        <Button variant="secondary" style={{ height: 40 }} onClick={() => setShowUrl(!showUrl)}><Link size={15} /> URL ou Figma</Button>
         <input ref={fileRef} type="file" accept="image/*" onChange={addFile} style={{ display: "none" }} />
       </div>
       {showUrl && (
-        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-          <input value={urlInput} onChange={e => setUrlInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addUrl()} placeholder="https://figma.com/… ou lien image" style={{ flex: 1, fontSize: 12.5, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", fontFamily: "inherit", outline: "none" }} />
-          <button onClick={addUrl} style={{ padding: "5px 10px", backgroundColor: T.primary, color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5 }}>Ajouter</button>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <input className="ds-input" value={urlInput} onChange={e => setUrlInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addUrl()} placeholder="https://figma.com/… ou lien image" style={{ flex: 1, minWidth: 0 }} />
+          <Button onClick={addUrl}>Ajouter</Button>
         </div>
       )}
     </div>
@@ -564,13 +526,12 @@ function PrototypePanel({ prototypes, onChange }) {
 }
 
 /* ─── KANBAN CARD ────────────────────────────────────────────── */
+const PRIO_TONE_BL = { "Must Have": "danger", "Should Have": "warning" };
+
 function KanbanCard({ item, allItems, onDelete, highlighted, onOpenDetail, onSelectNode, isDragging = false, dragListeners, dragAttributes }) {
   const [confirmDelete, setConfirm] = useState(false);
   const needsDiscovery = item.ambigu || item.status === "a-clarifier";
-
   const parent = item.parentId ? allItems.find(i => i.id === item.parentId) : null;
-  const parentCfg = parent ? (TYPE_CFG[parent.type] || TYPE_CFG["User Story"]) : null;
-  const pc = PRIO_CFG[item.priorite?.valeur] || { bg: "#F3F4F6", color: "#6B7280" };
 
   const handleParentClick = (e) => {
     e.stopPropagation();
@@ -578,86 +539,84 @@ function KanbanCard({ item, allItems, onDelete, highlighted, onOpenDetail, onSel
   };
 
   return (
-    <div id={`card-${item.id}`} onClick={() => onOpenDetail?.(item)} style={{ backgroundColor: highlighted ? "#F0F0FF" : T.card, borderRadius: T.radius, boxShadow: isDragging ? T.shadowMd : (highlighted ? `0 0 0 2px ${T.primary}` : T.shadow), border: `1px solid ${highlighted ? T.primary : T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, animation: highlighted ? "pulseRing 0.6s ease 2" : "none", transition: "box-shadow 0.15s, border-color 0.15s", overflow: "hidden", cursor: "pointer" }}>
-
-      {/* ── Drag handle ── */}
-      {dragListeners && (
-        <div {...dragListeners} {...dragAttributes} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, padding: "5px 0 4px", cursor: isDragging ? "grabbing" : "grab", backgroundColor: "rgba(0,0,0,0.018)", borderBottom: `1px solid ${T.borderSubtle}`, touchAction: "none", userSelect: "none" }}
-          onMouseEnter={e => e.currentTarget.style.backgroundColor = "rgba(92,95,212,0.06)"}
-          onMouseLeave={e => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.018)"}>
-          {[0,1,2,3,4].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", backgroundColor: "#C4C4D4" }} />)}
-        </div>
-      )}
-
-      <div style={{ padding: "10px 13px" }}>
+    <article id={`card-${item.id}`} className="ds-ticket" data-highlight={highlighted || undefined} data-dragging={isDragging || undefined} onClick={() => onOpenDetail?.(item)}>
+      {dragListeners && <div className="ds-grip" {...dragListeners} {...dragAttributes} onClick={e => e.stopPropagation()} aria-label="Déplacer le ticket"><GripVertical size={16} style={{ transform: "rotate(90deg)" }} /></div>}
+      <div className="ds-ticket__body" style={dragListeners ? { paddingTop: 8 } : undefined}>
         {item.potentiel_doublon && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 7 }}>
-            <AlertTriangle size={11} color="#D97706" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 10.5, color: "#92400E", fontWeight: 600 }}>Doublon potentiel</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 500, color: "var(--ds-warning-text)" }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} /> Doublon potentiel
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <TypeBadge type={item.type} />
-          <StatusBadge status={item.status} />
-          {item.priorite?.valeur && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color, border: `1px solid ${pc.color}22` }}>
-              <span style={{ fontWeight: 800 }}>{MOSCOW_TO_P[item.priorite.valeur] ?? ""}</span>
-            </span>
-          )}
-          {needsDiscovery && <HelpCircle size={13} color="#EA580C" style={{ flexShrink: 0 }} />}
+          {item.priorite?.valeur && <Pill tone={PRIO_TONE_BL[item.priorite.valeur]}>{MOSCOW_TO_P[item.priorite.valeur] ?? item.priorite.valeur}</Pill>}
+          {needsDiscovery && <span title="À clarifier avec le stakeholder" style={{ display: "flex", color: "var(--ds-warning)" }}><HelpCircle size={17} /></span>}
         </div>
 
+        <div className="ds-ticket__title">{item.titre}</div>
+
         {parent && (
-          <button onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: parentCfg.bg, color: parentCfg.color, border: `1px solid ${parentCfg.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: HIERARCHY_TYPES.includes(parent.type) ? "pointer" : "default", fontFamily: "inherit", marginBottom: 8, maxWidth: "100%", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-            ↑ {parent.type} · <span style={{ fontFamily: "monospace", letterSpacing: "0.04em" }}>#{toRef(parent.id)}</span>
+          <button className="ds-linkpill" onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : undefined} style={{ alignSelf: "flex-start", cursor: HIERARCHY_TYPES.includes(parent.type) ? "pointer" : "default" }}>
+            ↑ {parent.type} <span className="ds-ref">#{toRef(parent.id)}</span>
           </button>
         )}
 
-        <div style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.45, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {item.titre}
-        </div>
-
         {item.tags?.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-            {item.tags.slice(0, 3).map(tag => (
-              <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>{tag}</span>
-            ))}
-            {item.tags.length > 3 && <span style={{ fontSize: 10, color: T.textSubtle }}>+{item.tags.length - 3}</span>}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {item.tags.slice(0, 3).map(tag => <span key={tag} className="ds-tag">{tag}</span>)}
+            {item.tags.length > 3 && <span style={{ fontSize: 12.5, color: "var(--ds-text-muted)", alignSelf: "center" }}>+{item.tags.length - 3}</span>}
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingTop: 12, borderTop: "1px solid var(--ds-border)" }}>
           <SPBadge sp={item.story_points} />
-          <span style={{ fontFamily: "monospace", fontSize: 10.5, color: T.textSubtle, letterSpacing: "0.02em" }}>#{toRef(item.id)}</span>
-          <Avatar />
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}>
+          <span className="ds-ref">#{toRef(item.id)}</span>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
             {confirmDelete ? (
               <>
-                <span style={{ fontSize: 11, color: T.danger, fontWeight: 600 }}>Supprimer ?</span>
-                <button onClick={() => onDelete?.(item.id)} style={{ fontSize: 11, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Oui</button>
-                <button onClick={() => setConfirm(false)} style={{ fontSize: 11, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit" }}>Non</button>
+                <span style={{ fontSize: 13, color: "var(--ds-danger-text)", fontWeight: 500 }}>Supprimer ?</span>
+                <button className="ds-pill" data-tone="danger" onClick={() => onDelete?.(item.id)}>Oui</button>
+                <button className="ds-pill" onClick={() => setConfirm(false)}>Non</button>
               </>
             ) : (
-              <button onClick={() => setConfirm(true)} title="Supprimer ce ticket" style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textSubtle, display: "flex", alignItems: "center" }}
-                onMouseEnter={e => e.currentTarget.style.color = T.danger}
-                onMouseLeave={e => e.currentTarget.style.color = T.textSubtle}>
-                <Trash2 size={12} />
-              </button>
+              <>
+                <Avatar />
+                <button className="ds-mini" onClick={() => setConfirm(true)} title="Supprimer ce ticket" aria-label="Supprimer ce ticket"><Trash2 size={16} /></button>
+              </>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
 function SortableCard({ item, allItems, onDelete, highlighted, onOpenDetail, onSelectNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined };
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined, opacity: isDragging ? 0.4 : 1 };
   return (
     <div ref={setNodeRef} style={style}>
       <KanbanCard item={item} allItems={allItems} onDelete={onDelete} highlighted={highlighted} onOpenDetail={onOpenDetail} onSelectNode={onSelectNode} isDragging={isDragging} dragListeners={listeners} dragAttributes={attributes} />
+    </div>
+  );
+}
+
+function Section({ title, children, right }) {
+  return (
+    <section style={{ marginTop: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <Eyebrow>{title}</Eyebrow>{right}
+      </div>
+      {children}
+    </section>
+  );
+}
+function QRow({ Icon, label, q, color }) {
+  return (
+    <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "flex-start" }}>
+      <Icon size={15} color={color} style={{ flexShrink: 0, marginTop: 4 }} />
+      <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ds-text)" }}><b style={{ fontWeight: 600 }}>{label}</b> · {q}</div>
     </div>
   );
 }
@@ -703,8 +662,6 @@ function TicketDetailPanel({ item, allItems, onUpdate, onDelete, onClose, onNavi
   const needsDiscovery = local.ambigu || local.status === "a-clarifier";
   const parent   = local.parentId ? allItems.find(i => i.id === local.parentId) : null;
   const children = allItems.filter(i => i.parentId === local.id && EXECUTABLE_TYPES.includes(i.type));
-  const parentCfg = parent ? (TYPE_CFG[parent.type] || TYPE_CFG["User Story"]) : null;
-  const pc = PRIO_CFG[local.priorite?.valeur] || { bg: "#F3F4F6", color: "#6B7280" };
 
   const navigateTo = (targetId) => {
     onClose();
@@ -718,211 +675,135 @@ function TicketDetailPanel({ item, allItems, onUpdate, onDelete, onClose, onNavi
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", backgroundColor: "rgba(15,15,25,0.25)" }} onClick={onClose}>
-      <div style={{ width: 480, maxWidth: "92vw", height: "100%", backgroundColor: T.card, boxShadow: "-4px 0 24px rgba(0,0,0,.14)", overflow: "auto", padding: "22px 22px 60px", animation: "slideInRight 0.2s ease" }} onClick={e => e.stopPropagation()}>
+    <div className="ds-drawer-bg" onClick={onClose}>
+      <aside className="ds-drawer" style={{ width: 620 }} role="dialog" aria-label={local.titre} onClick={e => e.stopPropagation()}>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <TypeBadge type={local.type} />
             <StatusBadge status={local.status} />
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: T.textSubtle, borderRadius: 6 }}><X size={17} /></button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {saved && <span style={{ fontSize: 13, color: "var(--ds-success-text)", fontWeight: 500 }}>Enregistré</span>}
+            <button className="ds-iconbtn" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <span style={{ fontFamily: "monospace", fontSize: 11.5, color: T.textSubtle }}>#{toRef(local.id)}</span>
-          <Avatar size={22} />
-          {saved && <span style={{ fontSize: 11, color: T.success, fontWeight: 600, marginLeft: "auto" }}>Enregistré ✓</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          <span className="ds-ref">#{toRef(local.id)}</span>
+          <Avatar size={26} />
+          {parent && <button className="ds-linkpill" onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : "Aller au parent"}>↑ {parent.type} <span className="ds-ref">#{toRef(parent.id)}</span></button>}
+          {children.map(c => <button key={c.id} className="ds-linkpill" onClick={() => navigateTo(c.id)}>↓ {c.type} <span className="ds-ref">#{toRef(c.id)}</span></button>)}
         </div>
 
         {local.potentiel_doublon && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, backgroundColor: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: T.radiusSm, padding: "7px 10px", marginBottom: 14 }}>
-            <AlertTriangle size={12} color="#D97706" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 11.5, color: "#92400E", flex: 1, lineHeight: 1.4 }}>
-              Doublon {local.potentiel_doublon.niveau} · <em>"{local.potentiel_doublon.titre}"</em>
-            </span>
-            <button onClick={() => navigateTo(local.potentiel_doublon.id)} style={{ fontSize: 10.5, color: "#D97706", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 700, flexShrink: 0 }}>Voir →</button>
+          <div className="ds-block" data-tone="warning" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 16px" }}>
+            <AlertTriangle size={17} color="var(--ds-warning-text)" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 14, color: "var(--ds-warning-text)", flex: 1, lineHeight: 1.45 }}>Doublon {local.potentiel_doublon.niveau} · « {local.potentiel_doublon.titre} »</span>
+            <Button variant="ghost" style={{ height: 34, color: "var(--ds-warning-text)" }} onClick={() => navigateTo(local.potentiel_doublon.id)}>Voir</Button>
           </div>
         )}
 
-        {parent && (
-          <button onClick={handleParentClick} title={HIERARCHY_TYPES.includes(parent.type) ? "Filtrer par cette Feature/Epic" : "Aller au parent"} style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: parentCfg.bg, color: parentCfg.color, border: `1px solid ${parentCfg.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: 8 }}>
-            ↑ {parent.type} · <span style={{ fontFamily: "monospace", letterSpacing: "0.04em" }}>#{toRef(parent.id)}</span>
-          </button>
-        )}
+        <InlineEdit value={local.titre} onChange={v => update({ titre: v })} multiline style={{ fontSize: 24, fontWeight: 500, letterSpacing: "-0.025em", lineHeight: 1.25, color: "var(--ds-text)" }} />
 
-        {children.length > 0 && (
-          <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>
-            {children.map(c => {
-              const cc = TYPE_CFG[c.type] || TYPE_CFG["User Story"];
-              return <button key={c.id} onClick={() => navigateTo(c.id)} style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: cc.bg, color: cc.color, border: `1px solid ${cc.badge}`, borderRadius: 5, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>↓ {c.type} · <span style={{ fontFamily: "monospace" }}>#{toRef(c.id)}</span></button>;
-            })}
-          </div>
-        )}
-
-        <div style={{ marginBottom: 14 }}>
-          <InlineEdit value={local.titre} onChange={v => update({ titre: v })} multiline style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.5 }} />
-        </div>
-
-        {local.tags?.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 14 }}>
-            {local.tags.map(tag => (
-              <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>{tag}</span>
-            ))}
-          </div>
-        )}
-
-        {needsDiscovery ? (
-          <div style={{ backgroundColor: "#FFFBF5", border: "1px solid #FED7AA", borderRadius: T.radiusSm, padding: "10px", marginBottom: 12 }}>
-            {local.questions_clarification?.length > 0 && (
-              <>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 5 }}>SPÉCIFIQUES À CE TICKET</div>
-                {local.questions_clarification.map((q, i) => (
-                  <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4, alignItems: "flex-start" }}>
-                    <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#EA580C", flexShrink: 0, marginTop: 6, opacity: 0.7 }} />
-                    <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
-                  </div>
-                ))}
-                <div style={{ height: 1, backgroundColor: "#FED7AA", margin: "8px 0" }} />
-              </>
-            )}
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#EA580C", letterSpacing: "0.05em", marginBottom: 6 }}>QUESTIONS DE CADRAGE</div>
-            {DISCOVERY_QUESTIONS.map(({ Icon, label, q }, i) => (
-              <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
-                <Icon size={11} color="#EA580C" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
-                <div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#EA580C" }}>{label} — </span>
-                  <span style={{ fontSize: 11.5, color: "#7C2D12", lineHeight: 1.5 }}>{q}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : local.questions_clarification?.length > 0 && (
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 5 }}>QUESTIONS À CLARIFIER</div>
-            {local.questions_clarification.map((q, i) => (
-              <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4 }}><HelpCircle size={12} color={T.primary} style={{ flexShrink: 0, marginTop: 2 }} /><span style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5 }}>{q}</span></div>
-            ))}
-          </div>
-        )}
-
-        {needsDiscovery && (
-          <div style={{ backgroundColor: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: T.radiusSm, padding: "10px", marginBottom: 12 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#0369A1", letterSpacing: "0.05em", marginBottom: 6 }}>À ÉVALUER AVEC L'ÉQUIPE TECH</div>
-            {TECHNICAL_QUESTIONS.map(({ Icon, label, q }, i) => (
-              <div key={i} style={{ display: "flex", gap: 7, marginBottom: 5, alignItems: "flex-start" }}>
-                <Icon size={11} color="#0284C7" style={{ flexShrink: 0, marginTop: 3, opacity: 0.75 }} />
-                <div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#0369A1" }}>{label} — </span>
-                  <span style={{ fontSize: 11.5, color: "#0C4A6E", lineHeight: 1.5 }}>{q}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {needsDiscovery && (
-          <div style={{ marginBottom: 14 }}>
-            {clarifying ? (
-              <div style={{ backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: 10 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#15803D", marginBottom: 6 }}>Résumé de la clarification (daily)</div>
-                <textarea autoFocus value={clarifyNote} onChange={e => setClarifyNote(e.target.value)}
-                  placeholder="Ce qui a été décidé avec l'équipe : réponses aux questions, choix technique, périmètre retenu…"
-                  style={{ width: "100%", minHeight: 60, fontSize: 12.5, fontFamily: "inherit", color: T.text, border: `1px solid ${T.successBorder}`, borderRadius: 6, padding: "6px 8px", resize: "vertical", boxSizing: "border-box", marginBottom: 8 }} />
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={handleClarify} disabled={!clarifyNote.trim()} style={{ flex: 1, padding: "7px 0", border: "none", borderRadius: 6, backgroundColor: clarifyNote.trim() ? T.success : "#A7D8B8", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: clarifyNote.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
-                    Confirmer et passer en affinage
-                  </button>
-                  <button onClick={() => { setClarifying(false); setClarifyNote(""); }} style={{ padding: "7px 12px", border: `1px solid ${T.border}`, borderRadius: 6, backgroundColor: "#fff", color: T.textMuted, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setClarifying(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 0", border: `1px dashed ${T.successBorder}`, borderRadius: T.radiusSm, backgroundColor: "transparent", color: "#15803D", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                <CheckCheck size={14} /> Marquer comme clarifié
-              </button>
-            )}
-          </div>
-        )}
-
-        {local.rice && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: T.radiusSm, padding: "7px 10px", marginBottom: 12 }}>
-            <Zap size={12} color="#15803D" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 11.5, fontWeight: 800, color: "#15803D" }}>RICE {local.rice.score}</span>
-            <span style={{ fontSize: 11, color: "#166534", opacity: 0.85 }}>
-              R:{local.rice.reach >= 1000 ? `${(local.rice.reach/1000).toFixed(0)}k` : local.rice.reach}
-              {" · "}×{local.rice.impact}
-              {" · "}{Math.round(local.rice.confidence * 100)}%
-              {" · "}{local.rice.effort}w
-            </span>
-          </div>
-        )}
-
-        <div style={{ display: "flex", gap: 6, alignItems: "flex-start", backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: "8px 10px", marginBottom: 14 }}>
-          <Target size={13} color={T.success} style={{ flexShrink: 0, marginTop: 2 }} />
-          <InlineEdit value={local.valeur_metier} onChange={v => update({ valeur_metier: v })} multiline placeholder="Valeur métier attendue…" style={{ fontSize: 12.5, color: "#15803D", lineHeight: 1.5 }} />
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>PROTOTYPES & VISUELS</div>
-          <PrototypePanel prototypes={local.prototypes || []} onChange={v => update({ prototypes: v })} />
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <button onClick={() => setAcOpen(!acOpen)} style={{ display: "flex", alignItems: "center", gap: 5, width: "100%", background: "none", border: "none", padding: "4px 0", cursor: "pointer", fontFamily: "inherit" }}>
-            <ListChecks size={13} color={T.textSubtle} />
-            <span style={{ fontSize: 11.5, color: T.textSubtle, fontWeight: 600, letterSpacing: "0.04em" }}>CRITÈRES D'ACCEPTATION</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 4, padding: "0 6px" }}>{local.criteres_acceptation?.length || 0}</span>
-            <ChevronDown size={12} color={T.textSubtle} style={{ marginLeft: "auto", transform: acOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-          </button>
-          {acOpen && (
-            <div style={{ marginTop: 6 }}>
-              <ACEditor criteres={local.criteres_acceptation || []} onChange={v => update({ criteres_acceptation: v })} />
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 16, position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
           <div style={{ position: "relative" }}>
             <SPBadge sp={local.story_points} onClick={() => setShowSP(!showSP)} />
             {showSP && <SPPicker value={local.story_points} onChange={v => update({ story_points: v })} onClose={() => setShowSP(false)} />}
           </div>
-          {local.priorite?.valeur && <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color }}>{local.priorite.valeur}</span>}
-          {local.module_suggere && <span style={{ fontSize: 11, color: T.textSubtle }}>· {local.module_suggere}</span>}
+          {local.priorite?.valeur && <Pill tone={PRIO_TONE_BL[local.priorite.valeur]}>{local.priorite.valeur}</Pill>}
+          {(local.tags || []).map(tag => <span key={tag} className="ds-tag">{tag}</span>)}
+          {local.module_suggere && <span style={{ fontSize: 13.5, color: "var(--ds-text-muted)" }}>· {local.module_suggere}</span>}
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>CONTEXTE</div>
-          <InlineEdit value={local.contexte} onChange={v => update({ contexte: v })} multiline style={{ fontSize: 12.5, color: T.textMuted, lineHeight: 1.6 }} placeholder="Décrire le problème observé…" />
-        </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 8 }}>COMMENTAIRES</div>
-          <CommentThread commentaires={local.commentaires || []} onChange={v => update({ commentaires: v })} />
-        </div>
-
-        {local.ambigu && (
-          <div style={{ marginBottom: 16, padding: "8px 10px", borderRadius: T.radiusSm, backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
-            <AlertCircle size={13} color={T.warning} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 11.5, color: "#92400E", lineHeight: 1.5 }}>Besoin à préciser — à valider avec le stakeholder avant d'intégrer au backlog.</span>
+        {needsDiscovery && (
+          <div style={{ display: "grid", gap: 14, marginTop: 24 }}>
+            <div className="ds-block" data-tone="warning">
+              <div className="ds-block__t" style={{ color: "var(--ds-warning-text)" }}>Questions de cadrage</div>
+              {local.questions_clarification?.map((q, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, fontSize: 14, lineHeight: 1.55, color: "var(--ds-text)" }}>
+                  <HelpCircle size={15} color="var(--ds-warning-text)" style={{ flexShrink: 0, marginTop: 4 }} />{q}
+                </div>
+              ))}
+              {local.questions_clarification?.length > 0 && <div style={{ height: 1, background: "rgba(143,82,6,.18)", margin: "6px 0 12px" }} />}
+              {DISCOVERY_QUESTIONS.map(({ Icon, label, q }, i) => <QRow key={i} Icon={Icon} label={label} q={q} color="var(--ds-warning-text)" />)}
+            </div>
+            <div className="ds-block" data-tone="primary">
+              <div className="ds-block__t" style={{ color: "var(--ds-primary-strong)" }}>À évaluer avec l'équipe tech</div>
+              {TECHNICAL_QUESTIONS.map(({ Icon, label, q }, i) => <QRow key={i} Icon={Icon} label={label} q={q} color="var(--ds-primary-strong)" />)}
+            </div>
+            {clarifying ? (
+              <div className="ds-block" data-tone="success">
+                <div className="ds-block__t" style={{ color: "var(--ds-success-text)" }}>Résumé de la clarification (daily)</div>
+                <textarea className="ds-input" autoFocus value={clarifyNote} onChange={e => setClarifyNote(e.target.value)} style={{ background: "#fff", marginBottom: 12 }}
+                  placeholder="Ce qui a été décidé avec l'équipe : réponses aux questions, choix technique, périmètre retenu…" />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <Button onClick={handleClarify} disabled={!clarifyNote.trim()} style={{ flex: 1, minWidth: 220 }}>Confirmer et passer en affinage</Button>
+                  <Button variant="secondary" onClick={() => { setClarifying(false); setClarifyNote(""); }}>Annuler</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="secondary" onClick={() => setClarifying(true)} style={{ color: "var(--ds-success-text)" }}><CheckCheck size={17} /> Marquer comme clarifié</Button>
+            )}
           </div>
         )}
 
-        <div style={{ borderTop: `1px solid ${T.borderSubtle}`, paddingTop: 14 }}>
+        {!needsDiscovery && local.questions_clarification?.length > 0 && (
+          <Section title="Questions à clarifier">
+            {local.questions_clarification.map((q, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, fontSize: 14.5, lineHeight: 1.55 }}><HelpCircle size={16} color="var(--ds-primary)" style={{ flexShrink: 0, marginTop: 3 }} />{q}</div>
+            ))}
+          </Section>
+        )}
+
+        {local.rice && (
+          <div className="ds-block" data-tone="success" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, padding: "14px 18px", flexWrap: "wrap" }}>
+            <Zap size={17} color="var(--ds-success-text)" />
+            <b style={{ fontSize: 15, color: "var(--ds-success-text)" }}>RICE {local.rice.score}</b>
+            <span style={{ fontSize: 13.5, color: "var(--ds-success-text)" }}>
+              Reach {local.rice.reach >= 1000 ? `${(local.rice.reach / 1000).toFixed(0)}k` : local.rice.reach} · Impact ×{local.rice.impact} · Confiance {Math.round(local.rice.confidence * 100)}% · Effort {local.rice.effort} sem.
+            </span>
+          </div>
+        )}
+
+        <Section title="Valeur métier">
+          <div className="ds-block" data-tone="success" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <Target size={18} color="var(--ds-success-text)" style={{ flexShrink: 0, marginTop: 3 }} />
+            <InlineEdit value={local.valeur_metier} onChange={v => update({ valeur_metier: v })} multiline placeholder="Valeur métier attendue…" style={{ fontSize: 15, color: "var(--ds-success-text)", lineHeight: 1.55, flex: 1 }} />
+          </div>
+        </Section>
+
+        <Section title="Contexte">
+          <InlineEdit value={local.contexte} onChange={v => update({ contexte: v })} multiline style={{ fontSize: 15, color: "var(--ds-text-secondary)", lineHeight: 1.6 }} placeholder="Décrire le problème observé…" />
+        </Section>
+
+        <Section title={`Critères d'acceptation · ${local.criteres_acceptation?.length || 0}`}
+          right={<button className="ds-mini" onClick={() => setAcOpen(!acOpen)} aria-label={acOpen ? "Replier" : "Déplier"}><ChevronDown size={18} style={{ transform: acOpen ? "rotate(180deg)" : "none", transition: "transform var(--dur-fast)" }} /></button>}>
+          {acOpen && <ACEditor criteres={local.criteres_acceptation || []} onChange={v => update({ criteres_acceptation: v })} />}
+        </Section>
+
+        <Section title="Prototypes et visuels"><PrototypePanel prototypes={local.prototypes || []} onChange={v => update({ prototypes: v })} /></Section>
+        <Section title="Commentaires"><CommentThread commentaires={local.commentaires || []} onChange={v => update({ commentaires: v })} /></Section>
+
+        {local.ambigu && (
+          <div className="ds-block" data-tone="warning" style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 24 }}>
+            <AlertCircle size={17} color="var(--ds-warning-text)" style={{ flexShrink: 0, marginTop: 2 }} />
+            <span style={{ fontSize: 14, color: "var(--ds-warning-text)", lineHeight: 1.5 }}>Besoin à préciser. À valider avec le stakeholder avant d'intégrer au backlog.</span>
+          </div>
+        )}
+
+        <div style={{ borderTop: "1px solid var(--ds-border)", marginTop: 32, paddingTop: 18 }}>
           {confirmDelete ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 12.5, color: T.danger, fontWeight: 600 }}>Supprimer ce ticket ?</span>
-              <button onClick={() => { onDelete?.(local.id); onClose(); }} style={{ fontSize: 12, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>Oui, supprimer</button>
-              <button onClick={() => setConfirm(false)} style={{ fontSize: 12, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}>Annuler</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 14, color: "var(--ds-danger-text)", flex: 1, minWidth: 160 }}>Supprimer ce ticket ?</span>
+              <Button variant="secondary" style={{ height: 38 }} onClick={() => setConfirm(false)}>Annuler</Button>
+              <Button style={{ height: 38, background: "var(--ds-danger)", boxShadow: "none" }} onClick={() => { onDelete?.(local.id); onClose(); }}>Supprimer</Button>
             </div>
           ) : (
-            <button onClick={() => setConfirm(true)} style={{ display: "flex", alignItems: "center", gap: 6, color: T.danger, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, padding: 0 }}>
-              <Trash2 size={13} /> Supprimer ce ticket
-            </button>
+            <Button variant="ghost" onClick={() => setConfirm(true)} style={{ color: "var(--ds-danger-text)", paddingLeft: 0 }}><Trash2 size={16} /> Supprimer ce ticket</Button>
           )}
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
@@ -931,38 +812,30 @@ const COLUMNS = ["a-clarifier", "en-affinage", "pret-pour-dev", "prochain-sprint
 
 /* ─── SPRINT CAPACITY BAR ────────────────────────────────────── */
 function SprintCapacityBar({ sprint, usedSP, onEdit, onClose }) {
-  const pct      = sprint.capacity > 0 ? Math.min(100, Math.round((usedSP / sprint.capacity) * 100)) : 0;
+  const pct       = sprint.capacity > 0 ? Math.min(100, Math.round((usedSP / sprint.capacity) * 100)) : 0;
   const remaining = sprint.capacity - usedSP;
   const isFull    = remaining <= 0;
-  const color     = isFull ? "#C2410C" : remaining <= sprint.capacity * 0.15 ? "#A16207" : "#15803D";
-  const barColor  = isFull ? "#F97316" : remaining <= sprint.capacity * 0.15 ? "#EAB308" : "#22C55E";
-  const bgColor   = isFull ? "#FFF4ED" : remaining <= sprint.capacity * 0.15 ? "#FEFCE8" : "#F0FDF4";
-  const bdColor   = isFull ? "#FED7AA" : remaining <= sprint.capacity * 0.15 ? "#FDE68A" : "#BBF7D0";
+  const isNear    = !isFull && remaining <= sprint.capacity * 0.15;
+  const tone      = isFull ? "danger" : isNear ? "warning" : undefined;
 
   return (
-    <div style={{ backgroundColor: bgColor, border: `1px solid ${bdColor}`, borderRadius: T.radiusSm, padding: "9px 13px", marginBottom: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color, letterSpacing: "-0.01em" }}>{sprint.name}</span>
-          <span style={{ fontSize: 12, color, opacity: 0.8 }}>{usedSP} / {sprint.capacity} SP</span>
-          {isFull
-            ? <span style={{ fontSize: 10.5, fontWeight: 700, color: "#fff", backgroundColor: "#C2410C", borderRadius: 4, padding: "1px 7px" }}>SPRINT PLEIN</span>
-            : <span style={{ fontSize: 11, color, opacity: 0.75 }}>{remaining} SP disponibles</span>
-          }
+    <Card style={{ padding: "22px 26px", marginBottom: 20, display: "grid", gap: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <Eyebrow>Sprint en cours</Eyebrow>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap", marginTop: 6 }}>
+            <span style={{ fontSize: 26, fontWeight: 500, letterSpacing: "-0.025em", color: "var(--ds-text)" }}>{sprint.name}</span>
+            <span style={{ fontSize: 15, color: "var(--ds-text-secondary)" }}><b style={{ fontSize: 22, fontWeight: 500, color: "var(--ds-text)", letterSpacing: "-0.02em" }}>{usedSP}</b> / {sprint.capacity} SP</span>
+            {isFull ? <Pill tone="danger" dot>Sprint plein</Pill> : <Pill tone={tone || "success"} dot>{remaining} SP disponibles</Pill>}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          <button onClick={onEdit} style={{ fontSize: 11.5, color: T.textMuted, background: "none", border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-            <Settings2 size={11} /> Réglages
-          </button>
-          <button onClick={onClose} style={{ fontSize: 11.5, color: "#fff", background: "#6D28D9", border: "none", borderRadius: 6, padding: "3px 11px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
-            <CheckCheck size={11} /> Clôturer le sprint
-          </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Button variant="secondary" onClick={onEdit}><Settings2 size={16} /> Réglages</Button>
+          <Button onClick={onClose}><CheckCheck size={16} /> Clôturer le sprint</Button>
         </div>
       </div>
-      <div style={{ height: 5, backgroundColor: "rgba(0,0,0,0.08)", borderRadius: 99, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, backgroundColor: barColor, borderRadius: 99, transition: "width 0.35s ease" }} />
-      </div>
-    </div>
+      <div className="ds-progress" data-tone={tone} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Capacité du sprint"><span style={{ width: `${pct}%` }} /></div>
+    </Card>
   );
 }
 
@@ -971,55 +844,44 @@ function SprintSettingsPanel({ sprint, onSave, onClose }) {
   const [name, setName]         = useState(sprint.name);
   const [capacity, setCapacity] = useState(sprint.capacity);
   return (
-    <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.3)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: 24, boxShadow: T.shadowMd, width: 340, maxWidth: "90vw" }} onClick={e => e.stopPropagation()}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, margin: "0 0 18px", letterSpacing: "-0.02em" }}>Réglages du sprint</h3>
-        <div style={{ marginBottom: 13 }}>
-          <label style={{ fontSize: 10.5, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>NOM DU SPRINT</label>
-          <input value={name} onChange={e => setName(e.target.value)} style={{ width: "100%", fontSize: 13.5, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 11px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
-        </div>
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ fontSize: 10.5, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>CAPACITÉ EN STORY POINTS</label>
-          <input type="number" min="1" max="999" value={capacity} onChange={e => setCapacity(Math.max(1, Number(e.target.value)))}
-            style={{ width: "100%", fontSize: 13.5, border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 11px", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
-          <div style={{ fontSize: 11, color: T.textSubtle, marginTop: 5 }}>Typiquement 30 à 50 SP pour une équipe de 4 à 6 devs.</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => { onSave({ name: name.trim() || sprint.name, capacity }); onClose(); }}
-            style={{ flex: 1, padding: "9px 0", backgroundColor: T.primary, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            Enregistrer
-          </button>
-          <button onClick={onClose} style={{ padding: "9px 14px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 7, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-            Annuler
-          </button>
+    <div className="ds-modal-bg" onClick={onClose}>
+      <div className="ds-modal" role="dialog" aria-label="Réglages du sprint" onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.02em", marginBottom: 22 }}>Réglages du sprint</h3>
+        <label className="ds-label" htmlFor="sp-name">Nom du sprint</label>
+        <input id="sp-name" className="ds-input" value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: 18 }} />
+        <label className="ds-label" htmlFor="sp-cap">Capacité en story points</label>
+        <input id="sp-cap" className="ds-input" type="number" min="1" max="999" value={capacity} onChange={e => setCapacity(Math.max(1, Number(e.target.value)))} />
+        <div style={{ fontSize: 13.5, color: "var(--ds-text-secondary)", margin: "8px 0 24px" }}>Typiquement 30 à 50 SP pour une équipe de 4 à 6 devs.</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Button style={{ flex: 1 }} onClick={() => { onSave({ name: name.trim() || sprint.name, capacity }); onClose(); }}>Enregistrer</Button>
+          <Button variant="secondary" onClick={onClose}>Annuler</Button>
         </div>
       </div>
     </div>
   );
 }
 
-function KanbanColumn({ statusKey, items, allItems, onDelete, highlightedId, onOpenDetail, onSelectNode, isMobile = false }) {
+function KanbanColumn({ statusKey, items, allItems, onDelete, highlightedId, onOpenDetail, onSelectNode }) {
   const cfg = STATUS_CFG[statusKey];
   const { setNodeRef, isOver } = useDroppable({ id: statusKey });
   return (
-    <div style={{ flex: isMobile ? "0 0 280px" : 1, minWidth: isMobile ? 280 : 240, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "0 2px" }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: cfg.dot, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{cfg.label}</span>
-        <span style={{ backgroundColor: cfg.bg, color: cfg.color, borderRadius: 20, fontSize: 11, fontWeight: 700, padding: "1px 8px", border: `1px solid ${cfg.border}` }}>{items.length}</span>
-        <div style={{ flex: 1, height: 1, backgroundColor: T.border }} />
+    <section className="ds-col" aria-label={cfg.label}>
+      <div className="ds-col__head">
+        <span style={{ width: 9, height: 9, borderRadius: "50%", background: cfg.dot, flexShrink: 0 }} />
+        <b>{cfg.label}</b>
+        <Pill>{items.length}</Pill>
       </div>
-      <div ref={setNodeRef} style={{ flex: 1, minHeight: 80, borderRadius: T.radius, backgroundColor: isOver ? T.primaryLight : (items.length === 0 ? "#FAFAFD" : "transparent"), border: isOver ? `1.5px dashed ${T.primary}` : (items.length === 0 ? `1.5px dashed ${T.border}` : "none"), display: "flex", flexDirection: "column", justifyContent: items.length === 0 ? "center" : "flex-start", padding: items.length === 0 ? 12 : 0, transition: "background 0.15s" }}>
-        {items.length === 0 && <p style={{ textAlign: "center", fontSize: 12, color: T.textSubtle, margin: 0 }}>Déposer ici</p>}
+      <div ref={setNodeRef} className="ds-col__drop" data-empty={items.length === 0 || undefined} data-over={isOver || undefined}>
+        {items.length === 0 && "Dépose un ticket ici"}
         <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
           {items.map(item => <SortableCard key={item.id} item={item} allItems={allItems} onDelete={onDelete} highlighted={highlightedId === item.id} onOpenDetail={onOpenDetail} onSelectNode={onSelectNode} />)}
         </SortableContext>
       </div>
-    </div>
+    </section>
   );
 }
 
-function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlightedId, onNavigate, onSelectNode, filter, isMobile = false }) {
+function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlightedId, onNavigate, onSelectNode, filter, onClearFilter }) {
   const [activeId, setActiveId]             = useState(null);
   const [pendingMove, setPendingMove]       = useState(null);
   const [showExport, setShowExport]         = useState(false);
@@ -1028,9 +890,7 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
   const [detailItem, setDetailItem]         = useState(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-
   const findContainer = (id) => COLUMNS.includes(id) ? id : items.find(i => i.id === id)?.status;
-
   const sprintUsedSP = items.filter(i => i.status === "pret-pour-dev" && i.story_points).reduce((s, i) => s + i.story_points, 0);
 
   const onDragStart = ({ active }) => setActiveId(active.id);
@@ -1087,107 +947,61 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
   };
 
   const updateSprint = (next) => { setSprint(next); saveSprint(next); };
-
   const updateItem = (updated) => onItemsChange(items.map(i => i.id === updated.id ? updated : i));
   const deleteItem = (id) => onDeleteItem?.(id);
 
   const totalSP    = items.filter(i => i.story_points).reduce((s, i) => s + i.story_points, 0);
   const activeItem = activeId ? items.find(i => i.id === activeId) : null;
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div>
-      {/* Board header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {filter && (
-            <span style={{ fontSize: 12.5, color: T.primary, backgroundColor: T.primaryLight, borderRadius: 6, padding: "3px 10px", fontWeight: 600, border: `1px solid ${T.primaryMid}44` }}>
-              {filter.label}
-            </span>
-          )}
-          {totalSP > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: T.primaryLight, border: `1px solid ${T.primaryMid}44`, borderRadius: T.radiusSm, padding: "4px 12px" }}>
-              <Zap size={13} color={T.primary} />
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: T.primary }}>{totalSP} SP total</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {filter && <button className="ds-pill" data-tone="primary" onClick={onClearFilter} title="Retirer le filtre" style={{ height: 32, paddingRight: 8 }}>{filter.label} <X size={14} /></button>}
+          {totalSP > 0 && <Pill tone="primary"><Zap size={13} /> {totalSP} SP au total</Pill>}
+          <Pill>{items.length} ticket{items.length > 1 ? "s" : ""}</Pill>
+        </div>
+        <div style={{ position: "relative" }}>
+          <Button variant="secondary" onClick={() => setShowExport(!showExport)}><Download size={16} /> Exporter</Button>
+          {showExport && (
+            <div className="ds-menu">
+              <button onClick={() => { downloadFile(exportAsMarkdown(allItems), `backlog-${today}.md`, "text/markdown"); setShowExport(false); }}><FileText size={16} color="var(--ds-primary)" /> Markdown (.md)</button>
+              <button onClick={() => { downloadFile(exportAsCSV(allItems), `backlog-${today}.csv`, "text/csv;charset=utf-8;"); setShowExport(false); }}><Download size={16} color="var(--ds-primary)" /> CSV (.csv)</button>
             </div>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11.5, color: T.textSubtle }}>{items.length} item{items.length > 1 ? "s" : ""}</span>
-          <div style={{ position: "relative" }}>
-            <button onClick={() => setShowExport(!showExport)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-              <Download size={12} /> Exporter
-            </button>
-            {showExport && (
-              <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, backgroundColor: T.card, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadowMd, overflow: "hidden", minWidth: 180 }}>
-                <button onClick={() => { downloadFile(exportAsMarkdown(allItems), `backlog-${new Date().toISOString().slice(0,10)}.md`, "text/markdown"); setShowExport(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", borderBottom: `1px solid ${T.borderSubtle}`, cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: T.text, textAlign: "left" }}>
-                  <FileText size={13} color={T.primary} /> Markdown (.md)
-                </button>
-                <button onClick={() => { downloadFile(exportAsCSV(allItems), `backlog-${new Date().toISOString().slice(0,10)}.csv`, "text/csv;charset=utf-8;"); setShowExport(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, color: T.text, textAlign: "left" }}>
-                  <Download size={13} color={T.success} /> CSV (.csv)
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* Sprint capacity bar */}
-      <SprintCapacityBar
-        sprint={sprint}
-        usedSP={sprintUsedSP}
-        onEdit={() => setShowSprint(true)}
-        onClose={closeSprint}
-      />
+      <SprintCapacityBar sprint={sprint} usedSP={sprintUsedSP} onEdit={() => setShowSprint(true)} onClose={closeSprint} />
 
-      {/* Pending move alert */}
       {pendingMove && (
-        <div style={{ borderRadius: T.radius, padding: "12px 16px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10,
-          ...(pendingMove.sprintFull
-            ? { backgroundColor: "#F5F3FF", border: "1px solid #DDD6FE" }
-            : { backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}` })
-        }}>
-          {pendingMove.sprintFull
-            ? <Layers size={16} color="#6D28D9" style={{ flexShrink: 0 }} />
-            : <AlertTriangle size={16} color={T.warning} style={{ flexShrink: 0 }} />
-          }
-          <div style={{ flex: 1 }}>
-            {pendingMove.sprintFull ? (
-              <>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#4C1D95", marginBottom: 2 }}>
-                  Sprint plein — dépassement de {pendingMove.overflow} SP
-                </div>
-                <div style={{ fontSize: 12, color: "#6D28D9" }}>Ajouter au prochain sprint à la place ?</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#92400E", marginBottom: 2 }}>Il manque : {pendingMove.missing.join(" et ")}</div>
-                <div style={{ fontSize: 12, color: "#A16207" }}>Marquer comme prêt quand même ?</div>
-              </>
-            )}
+        <div className="ds-block" data-tone={pendingMove.sprintFull ? "primary" : "warning"} role="alert" style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
+          {pendingMove.sprintFull ? <Layers size={20} color="var(--ds-primary-strong)" /> : <AlertTriangle size={20} color="var(--ds-warning-text)" />}
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: pendingMove.sprintFull ? "var(--ds-primary-strong)" : "var(--ds-warning-text)" }}>
+              {pendingMove.sprintFull ? `Sprint plein, dépassement de ${pendingMove.overflow} SP` : `Il manque : ${pendingMove.missing.join(" et ")}`}
+            </div>
+            <div style={{ fontSize: 14, color: "var(--ds-text-secondary)", marginTop: 2 }}>{pendingMove.sprintFull ? "Ajouter au prochain sprint à la place ?" : "Marquer comme prêt quand même ?"}</div>
           </div>
-          <button
-            onClick={() => { applyMove(pendingMove.item, pendingMove.targetStatus, pendingMove.item.id, pendingMove.item.id); setPendingMove(null); }}
-            style={{ padding: "5px 12px", border: "none", borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-              backgroundColor: pendingMove.sprintFull ? "#6D28D9" : T.warning, color: "#fff" }}>
-            {pendingMove.sprintFull ? "Prochain sprint →" : "Confirmer"}
-          </button>
-          <button onClick={() => setPendingMove(null)} style={{ padding: "5px 10px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>Annuler</button>
+          <Button style={{ height: 40 }} onClick={() => { applyMove(pendingMove.item, pendingMove.targetStatus, pendingMove.item.id, pendingMove.item.id); setPendingMove(null); }}>
+            {pendingMove.sprintFull ? "Prochain sprint" : "Confirmer"}
+          </Button>
+          <Button variant="secondary" style={{ height: 40 }} onClick={() => setPendingMove(null)}>Annuler</Button>
         </div>
       )}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", ...(isMobile ? { overflowX: "auto", paddingBottom: 12, WebkitOverflowScrolling: "touch" } : {}) }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(300px, 1fr))", gap: 16, alignItems: "start", overflowX: "auto", paddingBottom: 12 }}>
           {COLUMNS.map(col => {
             const colItems = items.filter(i => i.status === col).sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
-            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onDelete={deleteItem} highlightedId={highlightedId} onOpenDetail={setDetailItem} onSelectNode={onSelectNode} isMobile={isMobile} />;
+            return <KanbanColumn key={col} statusKey={col} items={colItems} allItems={allItems} onDelete={deleteItem} highlightedId={highlightedId} onOpenDetail={setDetailItem} onSelectNode={onSelectNode} />;
           })}
         </div>
         <DragOverlay>{activeItem && <KanbanCard item={activeItem} allItems={allItems} isDragging />}</DragOverlay>
       </DndContext>
 
-      {showSprintSettings && (
-        <SprintSettingsPanel sprint={sprint} onSave={updateSprint} onClose={() => setShowSprint(false)} />
-      )}
+      {showSprintSettings && <SprintSettingsPanel sprint={sprint} onSave={updateSprint} onClose={() => setShowSprint(false)} />}
 
       {detailItem && (
         <TicketDetailPanel
@@ -1225,20 +1039,13 @@ function AddChildForm({ parentId, onAdd, onCancel }) {
   };
 
   return (
-    <div style={{ backgroundColor: "#F8FAFC", border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "10px 12px", marginTop: 6 }}>
-      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-        {["Bug", "Spike"].map(t => {
-          const c = TYPE_CFG[t];
-          return (
-            <button key={t} onClick={() => setType(t)} style={{ flex: 1, padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", backgroundColor: type === t ? c.bg : "#F3F4F6", color: type === t ? c.color : T.textMuted, border: `1.5px solid ${type === t ? c.badge : T.border}` }}>{t}</button>
-          );
-        })}
-      </div>
-      <input ref={ref} value={titre} onChange={e => setTitre(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder={type === "Bug" ? "Décrire le bug…" : "[SPIKE] Explorer…"} style={{ width: "100%", fontSize: 12.5, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontFamily: "inherit", outline: "none", marginBottom: 6, boxSizing: "border-box" }} />
-      <input value={contexte} onChange={e => setCtx(e.target.value)} placeholder="Contexte (optionnel)…" style={{ width: "100%", fontSize: 12, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", fontFamily: "inherit", outline: "none", marginBottom: 8, boxSizing: "border-box", color: T.textMuted }} />
-      <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={submit} style={{ flex: 1, padding: "5px 0", backgroundColor: T.primary, color: "#fff", border: "none", borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Ajouter</button>
-        <button onClick={onCancel} style={{ flex: 1, padding: "5px 0", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>Annuler</button>
+    <div className="ds-block" style={{ margin: "6px 0 10px", padding: 14, background: "#fff", border: "1px solid var(--ds-border)" }}>
+      <Segmented label="Type" options={["Bug", "Spike"]} value={type} onChange={setType} />
+      <input ref={ref} className="ds-input" value={titre} onChange={e => setTitre(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder={type === "Bug" ? "Décrire le bug…" : "[SPIKE] Explorer…"} style={{ margin: "12px 0 8px" }} />
+      <input className="ds-input" value={contexte} onChange={e => setCtx(e.target.value)} placeholder="Contexte (optionnel)…" style={{ marginBottom: 12 }} />
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button style={{ flex: 1, height: 40 }} onClick={submit} disabled={!titre.trim()}>Ajouter</Button>
+        <Button variant="secondary" style={{ height: 40 }} onClick={onCancel}>Annuler</Button>
       </div>
     </div>
   );
@@ -1250,51 +1057,44 @@ function DetailModal({ item, onUpdate, onClose }) {
   const save = (patch) => { const next = { ...local, ...patch }; setLocal(next); onUpdate(next); };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "flex-end" }} onClick={onClose}>
-      <div style={{ width: 460, height: "100%", backgroundColor: T.card, boxShadow: "-4px 0 24px rgba(0,0,0,.12)", overflow: "auto", padding: "24px 24px 40px", animation: "slideInRight 0.2s ease" }} onClick={e => e.stopPropagation()}>
+    <div className="ds-drawer-bg" onClick={onClose}>
+      <aside className="ds-drawer" role="dialog" aria-label={local.titre} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <TypeBadge type={item.type} />
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: T.textSubtle, borderRadius: 6 }}><X size={16} /></button>
+          <button className="ds-iconbtn" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
         </div>
+        <InlineEdit value={local.titre} onChange={v => save({ titre: v })} multiline style={{ fontSize: 24, fontWeight: 500, letterSpacing: "-0.025em", lineHeight: 1.25 }} />
 
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>TITRE</div>
-          <InlineEdit value={local.titre} onChange={v => save({ titre: v })} multiline style={{ fontSize: 14, fontWeight: 600, color: T.text, lineHeight: 1.5 }} />
-        </div>
-
-        <div style={{ backgroundColor: T.successLight, border: `1px solid ${T.successBorder}`, borderRadius: T.radiusSm, padding: "10px 12px", marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 5 }}>
-            <Target size={12} color={T.success} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.success, letterSpacing: "0.05em" }}>VALEUR MÉTIER</span>
+        <section style={{ marginTop: 28 }}>
+          <Eyebrow style={{ marginBottom: 12 }}>Valeur métier</Eyebrow>
+          <div className="ds-block" data-tone="success" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <Target size={18} color="var(--ds-success-text)" style={{ flexShrink: 0, marginTop: 3 }} />
+            <InlineEdit value={local.valeur_metier} onChange={v => save({ valeur_metier: v })} multiline placeholder="Bénéfice attendu, chiffré si possible…" style={{ fontSize: 15, color: "var(--ds-success-text)", lineHeight: 1.55, flex: 1 }} />
           </div>
-          <InlineEdit value={local.valeur_metier} onChange={v => save({ valeur_metier: v })} multiline placeholder="Bénéfice attendu, chiffré si possible…" style={{ fontSize: 13, color: "#15803D", lineHeight: 1.5 }} />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>CONTEXTE (problème observé)</div>
-          <InlineEdit value={local.contexte} onChange={v => save({ contexte: v })} multiline placeholder="Décrire le problème observé…" style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.6 }} />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>CRITÈRES D'ACCEPTATION</div>
+        </section>
+        <section style={{ marginTop: 28 }}>
+          <Eyebrow style={{ marginBottom: 12 }}>Contexte (problème observé)</Eyebrow>
+          <InlineEdit value={local.contexte} onChange={v => save({ contexte: v })} multiline placeholder="Décrire le problème observé…" style={{ fontSize: 15, color: "var(--ds-text-secondary)", lineHeight: 1.6 }} />
+        </section>
+        <section style={{ marginTop: 28 }}>
+          <Eyebrow style={{ marginBottom: 12 }}>Critères d'acceptation</Eyebrow>
           <ACEditor criteres={local.criteres_acceptation || []} onChange={v => save({ criteres_acceptation: v })} />
-        </div>
-
+        </section>
         {local.questions_clarification?.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: "0.05em", marginBottom: 6 }}>QUESTIONS À CLARIFIER</div>
+          <section style={{ marginTop: 28 }}>
+            <Eyebrow style={{ marginBottom: 12 }}>Questions à clarifier</Eyebrow>
             {local.questions_clarification.map((q, i) => (
-              <div key={i} style={{ display: "flex", gap: 7, marginBottom: 4 }}><HelpCircle size={12} color={T.primary} style={{ flexShrink: 0, marginTop: 2 }} /><span style={{ fontSize: 12.5, color: "#374151" }}>{q}</span></div>
+              <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, fontSize: 14.5, lineHeight: 1.55 }}><HelpCircle size={16} color="var(--ds-primary)" style={{ flexShrink: 0, marginTop: 3 }} />{q}</div>
             ))}
-          </div>
+          </section>
         )}
-      </div>
+      </aside>
     </div>
   );
 }
 
 /* ─── HIERARCHY TREE ─────────────────────────────────────────── */
-function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, onAddItem }) {
+function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, onAddItem, drawer = false }) {
   const [expanded,  setExpanded]  = useState({ d1: true });
   const [addingTo,  setAddingTo]  = useState(null);
   const [detailItem,setDetailItem]= useState(null);
@@ -1302,7 +1102,6 @@ function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, on
   const epics    = backlog.filter(i => i.type === "Epic");
   const toggle   = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }));
   const isActive = (id) => activeFilter?.id === id;
-
   const handleAdd = (item) => { onAddItem(item); setAddingTo(null); };
 
   const execCount = (nodeId, nodeType) => {
@@ -1313,107 +1112,61 @@ function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, on
     return backlog.filter(i => EXECUTABLE_TYPES.includes(i.type) && i.parentId === nodeId).length;
   };
 
-  const nodeBtn = (id, label, color, isActive, onClick, depth = 0) => (
-    <button onClick={onClick} style={{ display: "flex", alignItems: "center", width: "100%", textAlign: "left", padding: `6px ${8 + depth * 12}px 6px ${depth > 0 ? 8 + depth * 12 : 8}px`, borderRadius: T.radiusSm, border: "none", cursor: "pointer", fontFamily: "inherit", backgroundColor: isActive ? T.primaryLight : "transparent", color: isActive ? T.primary : T.text, fontWeight: isActive ? 600 : 400, fontSize: 12.5, transition: T.transition, gap: 7 }}
-      onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = "#F5F5FA"; }}
-      onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = "transparent"; }}>
-      <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: color, flexShrink: 0 }} />
-      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-    </button>
-  );
-
   return (
     <>
-      <div style={{ width: 248, flexShrink: 0, borderRight: `1px solid ${T.border}`, overflow: "auto", padding: "12px 8px", backgroundColor: T.sidebar, display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px 10px" }}>
-          <div style={{ width: 20, height: 20, borderRadius: 5, background: T.gradient, display: "flex", alignItems: "center", justifyContent: "center" }}><Layers size={10} color="#fff" /></div>
-          <span style={{ fontSize: 10, fontWeight: 700, color: T.textSubtle, letterSpacing: ".07em", textTransform: "uppercase" }}>Hiérarchie</span>
-        </div>
+      <aside className={`ds-tree ${drawer ? "ds-tree--drawer" : ""}`} aria-label="Hiérarchie du backlog">
+        <Eyebrow style={{ padding: "2px 12px 12px" }}>Hiérarchie</Eyebrow>
 
-        {/* Tout afficher */}
-        <button onClick={() => onSelectFilter(null)} style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", textAlign: "left", padding: "6px 8px", borderRadius: T.radiusSm, border: `1.5px solid ${!activeFilter ? T.primaryMid : "transparent"}`, cursor: "pointer", fontFamily: "inherit", backgroundColor: !activeFilter ? T.primaryLight : "transparent", color: !activeFilter ? T.primary : T.textMuted, fontWeight: !activeFilter ? 700 : 500, fontSize: 12.5, transition: T.transition, marginBottom: 4 }}>
-          <Layers size={13} />
-          Tout afficher
-          <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, backgroundColor: !activeFilter ? T.primaryMid + "55" : "#F3F4F6", color: !activeFilter ? T.primary : T.textSubtle, borderRadius: 10, padding: "0 6px" }}>
-            {backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length}
-          </span>
+        <button className="ds-treeitem" aria-current={!activeFilter} onClick={() => onSelectFilter(null)} style={{ flex: "none", width: "100%" }}>
+          <Layers size={17} />
+          <span className="ds-treeitem__t">Tout afficher</span>
+          <span className="ds-count ds-count--soft">{backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length}</span>
         </button>
 
-        <div style={{ height: 1, backgroundColor: T.borderSubtle, margin: "4px 0 8px" }} />
+        <div style={{ height: 1, background: "var(--ds-border)", margin: "10px 6px" }} />
 
         {epics.map(epic => {
-          const features  = backlog.filter(i => i.type === "Feature" && i.parentId === epic.id);
-          const eCount    = execCount(epic.id, "Epic");
+          const features   = backlog.filter(i => i.type === "Feature" && i.parentId === epic.id);
           const isExpanded = expanded[epic.id];
-          const eCfg      = TYPE_CFG.Epic;
-
           return (
             <div key={epic.id} style={{ marginBottom: 4 }}>
-              {/* Epic row */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <button onClick={() => toggle(epic.id)} style={{ flexShrink: 0, padding: "3px 2px", background: "none", border: "none", cursor: "pointer", color: T.textSubtle, display: "flex", alignItems: "center" }}>
-                  <ChevronRight size={13} style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <button className="ds-mini" onClick={() => toggle(epic.id)} aria-label={isExpanded ? "Replier" : "Déplier"} aria-expanded={!!isExpanded}>
+                  <ChevronRight size={16} style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform var(--dur-fast)" }} />
                 </button>
-                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, padding: "4px 6px 4px 2px", borderRadius: T.radiusSm, backgroundColor: isActive(epic.id) ? eCfg.bg : "transparent", cursor: "pointer", transition: T.transition }}
-                  onClick={() => onSelectFilter({ id: epic.id, type: "epic", label: `Epic · ${shortTitle(epic.titre)}` })}
-                  onMouseEnter={e => { if (!isActive(epic.id)) e.currentTarget.style.backgroundColor = "#FFF9F5"; }}
-                  onMouseLeave={e => { if (!isActive(epic.id)) e.currentTarget.style.backgroundColor = "transparent"; }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: eCfg.dot, flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: isActive(epic.id) ? 700 : 600, color: isActive(epic.id) ? eCfg.color : T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    <span style={{ fontFamily: "monospace", fontSize: 10.5, opacity: 0.65, marginRight: 4 }}>#{toRef(epic.id)}</span>{shortTitle(epic.titre)}
-                  </span>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: eCfg.color, backgroundColor: eCfg.bg, border: `1px solid ${eCfg.badge}`, borderRadius: 10, padding: "0 5px", flexShrink: 0 }}>{eCount}</span>
-                </div>
-                <button onClick={() => setDetailItem(epic)} title="Modifier l'Epic" style={{ flexShrink: 0, padding: 3, background: "none", border: "none", cursor: "pointer", color: T.textSubtle, opacity: 0.5 }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                  onMouseLeave={e => e.currentTarget.style.opacity = 0.5}>
-                  <Pencil size={11} />
+                <button className="ds-treeitem" aria-current={isActive(epic.id)} title={epic.titre} onClick={() => onSelectFilter({ id: epic.id, type: "epic", label: `Epic · ${shortTitle(epic.titre)}` })}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: TYPE_CFG.Epic.dot, flexShrink: 0 }} />
+                  <span className="ds-treeitem__t" style={{ fontWeight: 600 }}>{shortTitle(epic.titre)}</span>
+                  <span className="ds-count ds-count--soft">{execCount(epic.id, "Epic")}</span>
                 </button>
+                <button className="ds-mini" onClick={() => setDetailItem(epic)} title="Modifier l'Epic" aria-label="Modifier l'Epic"><Pencil size={14} /></button>
               </div>
 
-              {/* Features */}
               {isExpanded && (
-                <div style={{ marginLeft: 20, marginTop: 2 }}>
-                  {features.map(feat => {
-                    const fCount = execCount(feat.id, "Feature");
-                    const fCfg   = TYPE_CFG.Feature;
-                    const fActive = isActive(feat.id);
-
-                    return (
-                      <div key={feat.id}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: T.radiusSm, backgroundColor: fActive ? fCfg.bg : "transparent", cursor: "pointer", transition: T.transition }}
-                            onClick={() => onSelectFilter({ id: feat.id, type: "feature", label: `Feature · ${shortTitle(feat.titre)}` })}
-                            onMouseEnter={e => { if (!fActive) e.currentTarget.style.backgroundColor = "#F5FDF7"; }}
-                            onMouseLeave={e => { if (!fActive) e.currentTarget.style.backgroundColor = "transparent"; }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: fCfg.dot, flexShrink: 0 }} />
-                            <span style={{ flex: 1, fontSize: 12, fontWeight: fActive ? 700 : 500, color: fActive ? fCfg.color : T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              <span style={{ fontFamily: "monospace", fontSize: 10, opacity: 0.6, marginRight: 4 }}>#{toRef(feat.id)}</span>{shortTitle(feat.titre)}
-                            </span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: fCfg.color, backgroundColor: fCfg.bg, border: `1px solid ${fCfg.badge}`, borderRadius: 10, padding: "0 5px", flexShrink: 0 }}>{fCount}</span>
-                          </div>
-                          <button onClick={() => setDetailItem(feat)} title="Modifier la Feature" style={{ flexShrink: 0, padding: 3, background: "none", border: "none", cursor: "pointer", color: T.textSubtle, opacity: 0.5 }}
-                            onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                            onMouseLeave={e => e.currentTarget.style.opacity = 0.5}>
-                            <Pencil size={10} />
-                          </button>
-                          <button onClick={() => setAddingTo(addingTo === feat.id ? null : feat.id)} title="Ajouter Bug ou Spike" style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 4, backgroundColor: addingTo === feat.id ? T.primaryLight : "#F3F4F6", color: addingTo === feat.id ? T.primary : T.textSubtle, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                        {addingTo === feat.id && <AddChildForm parentId={feat.id} onAdd={handleAdd} onCancel={() => setAddingTo(null)} />}
+                <div style={{ marginLeft: 34, marginTop: 2, display: "grid", gap: 2 }}>
+                  {features.map(feat => (
+                    <div key={feat.id}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        <button className="ds-treeitem" aria-current={isActive(feat.id)} title={feat.titre} onClick={() => onSelectFilter({ id: feat.id, type: "feature", label: `Feature · ${shortTitle(feat.titre)}` })}>
+                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: TYPE_CFG.Feature.dot, flexShrink: 0 }} />
+                          <span className="ds-treeitem__t">{shortTitle(feat.titre)}</span>
+                          <span className="ds-count ds-count--soft">{execCount(feat.id, "Feature")}</span>
+                        </button>
+                        <button className="ds-mini" onClick={() => setDetailItem(feat)} title="Modifier la Feature" aria-label="Modifier la Feature"><Pencil size={14} /></button>
+                        <button className="ds-mini" onClick={() => setAddingTo(addingTo === feat.id ? null : feat.id)} title="Ajouter un Bug ou un Spike" aria-label="Ajouter un Bug ou un Spike" style={addingTo === feat.id ? { background: "var(--ds-primary-soft)", color: "var(--ds-primary-strong)" } : undefined}><Plus size={16} /></button>
                       </div>
-                    );
-                  })}
-                  {features.length === 0 && <span style={{ fontSize: 11.5, color: T.textSubtle, paddingLeft: 4 }}>Aucune Feature</span>}
+                      {addingTo === feat.id && <AddChildForm parentId={feat.id} onAdd={handleAdd} onCancel={() => setAddingTo(null)} />}
+                    </div>
+                  ))}
+                  {features.length === 0 && <span style={{ fontSize: 13.5, color: "var(--ds-text-muted)", padding: "6px 12px" }}>Aucune Feature</span>}
                 </div>
               )}
             </div>
           );
         })}
 
-        {epics.length === 0 && <div style={{ textAlign: "center", padding: 16, fontSize: 12.5, color: T.textSubtle }}>Lance une analyse pour voir la hiérarchie.</div>}
-      </div>
+        {epics.length === 0 && <div style={{ textAlign: "center", padding: 20, fontSize: 14, color: "var(--ds-text-secondary)" }}>Lance une analyse pour voir la hiérarchie.</div>}
+      </aside>
 
       {detailItem && <DetailModal item={detailItem} onUpdate={(updated) => { onUpdateItem(updated); setDetailItem(updated); }} onClose={() => setDetailItem(null)} />}
     </>
@@ -1423,9 +1176,9 @@ function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, on
 /* ─── DEMO BANNER ────────────────────────────────────────────── */
 function DemoBanner() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, backgroundColor: T.warningLight, border: `1px solid ${T.warningBorder}`, borderRadius: T.radiusSm, padding: "8px 14px", marginBottom: 20 }}>
-      <AlertCircle size={14} color={T.warning} style={{ flexShrink: 0 }} />
-      <span style={{ fontSize: 12.5, color: "#A16207" }}><strong style={{ color: "#92400E" }}>Données de démonstration</strong> — analyse des feedbacks réels pour voir tes statistiques.</span>
+    <div className="ds-block" data-tone="warning" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, padding: "14px 18px" }}>
+      <AlertCircle size={18} color="var(--ds-warning-text)" style={{ flexShrink: 0 }} />
+      <span style={{ fontSize: 14.5, color: "var(--ds-warning-text)", lineHeight: 1.5 }}><b style={{ fontWeight: 600 }}>Données de démonstration.</b> Analyse de vrais feedbacks pour voir tes statistiques.</span>
     </div>
   );
 }
@@ -1837,131 +1590,102 @@ async function exportThemesReportPPTX(themes, feedbackInbox, backlog) {
 }
 
 /* ─── THÈMES : carte + drag ──────────────────────────────────── */
+const THEME_TONE = { "nouveau-signal": "warning", "en-consolidation": undefined, "valide": "success", "pousse-backlog": "primary" };
+const PRIO_TONE  = { "Must Have": "danger", "Should Have": "warning" };
+
 function ThemeCard({ theme, feedbackItems, framework = "MoSCoW", onOpenDetail, onPush, pushing, onGoToBacklogItem, isDragging = false, dragListeners, dragAttributes }) {
   const cfg = THEME_STATUS_CFG[theme.status] || THEME_STATUS_CFG["nouveau-signal"];
-  const visibleFeedback = feedbackItems.slice(0, 3);
-  const extra = feedbackItems.length - visibleFeedback.length;
+  const quotes = feedbackItems.slice(0, 2);
+  const extra = feedbackItems.length - quotes.length;
   const estimate = theme.status === "pousse-backlog" ? null : estimateThemePriority(feedbackItems.length, framework);
-  const pc = estimate?.framework === "MoSCoW" ? (PRIO_CFG[estimate.label] || { bg: "#F3F4F6", color: "#6B7280" }) : null;
   const sources = [...new Set(feedbackItems.map(f => f.source || "Autre"))];
+  const pushed = theme.status === "pousse-backlog";
 
   return (
-    <div onClick={() => onOpenDetail?.(theme)} style={{ backgroundColor: T.card, borderRadius: T.radius, boxShadow: isDragging ? T.shadowMd : T.shadow, border: `1px solid ${T.border}`, marginBottom: 8, opacity: isDragging ? 0.85 : 1, overflow: "hidden", cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s" }}>
-
-      {dragListeners && (
-        <div {...dragListeners} {...dragAttributes} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, padding: "5px 0 4px", cursor: isDragging ? "grabbing" : "grab", backgroundColor: "rgba(0,0,0,0.018)", borderBottom: `1px solid ${T.borderSubtle}`, touchAction: "none", userSelect: "none" }}
-          onMouseEnter={e => e.currentTarget.style.backgroundColor = "rgba(92,95,212,0.06)"}
-          onMouseLeave={e => e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.018)"}>
-          {[0, 1, 2, 3, 4].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", backgroundColor: "#C4C4D4" }} />)}
-        </div>
-      )}
-
-      <div style={{ padding: "12px 14px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: cfg.bg, color: cfg.color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, border: `1px solid ${cfg.border}` }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: cfg.dot }} />
-            {cfg.label}
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: "#F3F4F6", color: T.textMuted, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>
-            <Users size={10} /> {feedbackItems.length} feedback{feedbackItems.length > 1 ? "s" : ""}
-          </span>
+    <article className="ds-themecard" data-dragging={isDragging || undefined} onClick={() => onOpenDetail?.(theme)}>
+      {dragListeners && <div className="ds-grip" {...dragListeners} {...dragAttributes} onClick={e => e.stopPropagation()} aria-label="Déplacer le thème"><GripVertical size={16} style={{ transform: "rotate(90deg)" }} /></div>}
+      <div className="ds-themecard__body" style={dragListeners ? { paddingTop: 10 } : undefined}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+          <Pill tone={THEME_TONE[theme.status]} dot>{cfg.label}</Pill>
           {estimate && (
-            <span title="Estimation avant passage au backlog — recalculée par l'IA au moment du push" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, backgroundColor: pc ? pc.bg : T.primaryLight, color: pc ? pc.color : T.primary, border: `1px solid ${pc ? pc.color : T.primary}22` }}>
-              {pc && <span style={{ fontWeight: 800 }}>{estimate.p}</span>} {estimate.label}
+            <span title="Estimation avant passage au backlog, recalculée par l'IA au moment du push">
+              <Pill tone={estimate.framework === "MoSCoW" ? PRIO_TONE[estimate.label] : "primary"}>
+                {estimate.p ? `${estimate.p} · ${estimate.label}` : estimate.label}
+              </Pill>
             </span>
           )}
         </div>
 
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 5 }}>{theme.titre}</div>
-        <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.5, marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{theme.description}</div>
+        <div style={{ display: "grid", gap: 6 }}>
+          <h3>{theme.titre}</h3>
+          <p>{theme.description}</p>
+        </div>
 
-        {visibleFeedback.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-            {visibleFeedback.map(fb => (
-              <div key={fb.id} style={{ fontSize: 11, color: T.textSubtle, backgroundColor: "#FAFAFD", border: `1px solid ${T.borderSubtle}`, borderRadius: 6, padding: "5px 8px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                "{fb.apercu}"
-              </div>
-            ))}
-            {extra > 0 && <div style={{ fontSize: 11, color: T.textSubtle, fontWeight: 600 }}>+{extra} autre{extra > 1 ? "s" : ""}</div>}
+        {quotes.length > 0 && (
+          <div style={{ display: "grid", gap: 10 }}>
+            {quotes.map(fb => <div key={fb.id} className="ds-quote">{fb.apercu}</div>)}
+            {extra > 0 && <span style={{ fontSize: 13, color: "var(--ds-text-muted)" }}>+{extra} autre{extra > 1 ? "s" : ""}</span>}
           </div>
         )}
 
-        {theme.tags?.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-            {theme.tags.slice(0, 4).map(tag => (
-              <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "1px 6px", border: "1px solid #C7D2FE" }}>{tag}</span>
-            ))}
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Pill><Users size={13} /> {feedbackItems.length} feedback{feedbackItems.length > 1 ? "s" : ""}</Pill>
+          {(theme.tags || []).slice(0, 3).map(tag => <span key={tag} className="ds-tag">{tag}</span>)}
+        </div>
+        {sources.length > 0 && <div style={{ fontSize: 13, color: "var(--ds-text-muted)" }}>Source{sources.length > 1 ? "s" : ""} · {sources.join(", ")}</div>}
 
-        {sources.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
-            {sources.map(s => {
-              const scfg = SOURCE_CFG[s] || SOURCE_CFG["Autre"];
-              return <span key={s} style={{ fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}` }}>{s}</span>;
-            })}
-          </div>
-        )}
-
-        <div onClick={e => e.stopPropagation()}>
-          {theme.status === "pousse-backlog" ? (
-            theme.backlogItemIds?.length > 0 && (
-              <button onClick={() => onGoToBacklogItem?.(theme.backlogItemIds[0])} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, background: T.primaryLight, color: T.primary, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                Voir dans le Backlog <ArrowRight size={13} />
-              </button>
-            )
+        <div style={{ marginTop: "auto", paddingTop: 4 }} onClick={e => e.stopPropagation()}>
+          {pushed ? (
+            theme.backlogItemIds?.length > 0 && <Button variant="secondary" style={{ width: "100%" }} onClick={() => onGoToBacklogItem?.(theme.backlogItemIds[0])}>Voir dans le Backlog <ArrowRight size={16} /></Button>
           ) : (
-            <button onClick={() => onPush?.(theme)} disabled={pushing} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 0", border: "none", borderRadius: T.radiusSm, background: pushing ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: pushing ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
-              {pushing ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Génération…</> : <><ArrowRight size={13} /> Pousser vers le backlog</>}
-            </button>
+            <Button style={{ width: "100%" }} onClick={() => onPush?.(theme)} disabled={pushing}>
+              {pushing ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Génération…</> : <><ArrowRight size={16} /> Pousser vers le backlog</>}
+            </Button>
           )}
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
 function SortableThemeCard({ theme, feedbackItems, framework, onOpenDetail, onPush, pushing, onGoToBacklogItem }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: theme.id, disabled: theme.status === "pousse-backlog" });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined };
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 999 : undefined, opacity: isDragging ? 0.4 : 1 };
   return (
     <div ref={setNodeRef} style={style}>
-      <ThemeCard theme={theme} feedbackItems={feedbackItems} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushing={pushing} onGoToBacklogItem={onGoToBacklogItem} isDragging={isDragging} dragListeners={theme.status === "pousse-backlog" ? undefined : listeners} dragAttributes={attributes} />
+      <ThemeCard theme={theme} feedbackItems={feedbackItems} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushing={pushing} onGoToBacklogItem={onGoToBacklogItem} dragListeners={theme.status === "pousse-backlog" ? undefined : listeners} dragAttributes={attributes} />
     </div>
   );
 }
 
 /* ─── THÈMES : Kanban de maturation ───────────────────────────── */
-function ThemeKanbanColumn({ statusKey, themes, feedbackInbox, framework, onOpenDetail, onPush, pushingId, onGoToBacklogItem, isMobile = false }) {
+function ThemeKanbanColumn({ statusKey, themes, feedbackInbox, framework, onOpenDetail, onPush, pushingId, onGoToBacklogItem }) {
   const cfg = THEME_STATUS_CFG[statusKey];
   const droppable = statusKey !== "pousse-backlog";
   const { setNodeRef, isOver } = useDroppable({ id: statusKey, disabled: !droppable });
   return (
-    <div style={{ flex: isMobile ? "0 0 260px" : 1, minWidth: isMobile ? 260 : 220, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "0 2px" }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: cfg.dot, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{cfg.label}</span>
-        <span style={{ backgroundColor: cfg.bg, color: cfg.color, borderRadius: 20, fontSize: 11, fontWeight: 700, padding: "1px 8px", border: `1px solid ${cfg.border}` }}>{themes.length}</span>
-        <div style={{ flex: 1, height: 1, backgroundColor: T.border }} />
+    <section className="ds-col" aria-label={cfg.label}>
+      <div className="ds-col__head">
+        <b>{cfg.label}</b>
+        <Pill tone={THEME_TONE[statusKey]}>{themes.length}</Pill>
       </div>
-      <div ref={setNodeRef} style={{ flex: 1, minHeight: 80, borderRadius: T.radius, backgroundColor: isOver ? T.primaryLight : (themes.length === 0 ? "#FAFAFD" : "transparent"), border: isOver ? `1.5px dashed ${T.primary}` : (themes.length === 0 ? `1.5px dashed ${T.border}` : "none"), display: "flex", flexDirection: "column", justifyContent: themes.length === 0 ? "center" : "flex-start", padding: themes.length === 0 ? 12 : 0, transition: "background 0.15s" }}>
-        {themes.length === 0 && <p style={{ textAlign: "center", fontSize: 12, color: T.textSubtle, margin: 0 }}>{droppable ? "Déposer ici" : "—"}</p>}
+      <div ref={setNodeRef} className="ds-col__drop" data-empty={themes.length === 0 || undefined} data-over={isOver || undefined}>
+        {themes.length === 0 && (droppable ? "Dépose un thème ici" : "Aucun thème poussé")}
         <SortableContext items={themes.map(t => t.id)} strategy={verticalListSortingStrategy}>
           {themes.map(theme => (
             <SortableThemeCard key={theme.id} theme={theme} feedbackItems={feedbackInbox.filter(f => theme.feedbackIds.includes(f.id))} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushing={pushingId === theme.id} onGoToBacklogItem={onGoToBacklogItem} />
           ))}
         </SortableContext>
       </div>
-    </div>
+    </section>
   );
 }
 
-function ThemeKanbanBoard({ themes, feedbackInbox, framework, onThemesChange, onOpenDetail, onPush, pushingId, onGoToBacklogItem, isMobile = false }) {
+function ThemeKanbanBoard({ themes, feedbackInbox, framework, onThemesChange, onOpenDetail, onPush, pushingId, onGoToBacklogItem }) {
   const [activeId, setActiveId] = useState(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const findContainer = (id) => THEME_PIPELINE.includes(id) ? id : themes.find(t => t.id === id)?.status;
-
   const onDragStart = ({ active }) => setActiveId(active.id);
 
   const onDragEnd = ({ active, over }) => {
@@ -1988,10 +1712,10 @@ function ThemeKanbanBoard({ themes, feedbackInbox, framework, onThemesChange, on
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", ...(isMobile ? { overflowX: "auto", paddingBottom: 12, WebkitOverflowScrolling: "touch" } : {}) }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(300px, 1fr))", gap: 16, alignItems: "start", overflowX: "auto", paddingBottom: 12 }}>
         {THEME_PIPELINE.map(col => {
           const colThemes = themes.filter(t => t.status === col).sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
-          return <ThemeKanbanColumn key={col} statusKey={col} themes={colThemes} feedbackInbox={feedbackInbox} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} isMobile={isMobile} />;
+          return <ThemeKanbanColumn key={col} statusKey={col} themes={colThemes} feedbackInbox={feedbackInbox} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} />;
         })}
       </div>
       <DragOverlay>{activeTheme && <ThemeCard theme={activeTheme} feedbackItems={feedbackInbox.filter(f => activeTheme.feedbackIds.includes(f.id))} framework={framework} isDragging />}</DragOverlay>
@@ -1999,153 +1723,126 @@ function ThemeKanbanBoard({ themes, feedbackInbox, framework, onThemesChange, on
   );
 }
 
-/* ─── THÈMES : vue cartes groupées ────────────────────────────── */
+/* ─── THÈMES : vue cartes + tuiles de statut ──────────────────── */
 function ThemeGroupedView({ themes, feedbackInbox, framework, onOpenDetail, onPush, pushingId, onGoToBacklogItem }) {
+  const isMobile = useIsMobile(900);
   const [filter, setFilter]       = useState(null);
   const [sourceFilter, setSource] = useState(null);
 
   const themeSources = (theme) => [...new Set(feedbackInbox.filter(f => theme.feedbackIds.includes(f.id)).map(f => f.source || "Autre"))];
-
   const filtered = themes
     .filter(t => !filter || t.status === filter)
     .filter(t => !sourceFilter || themeSources(t).includes(sourceFilter));
+  const sourceOptions = FEEDBACK_SOURCES.map(s => [s, themes.filter(t => themeSources(t).includes(s)).length]).filter(([, n]) => n > 0);
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-        <button onClick={() => setFilter(null)} style={{ padding: "5px 12px", borderRadius: 99, border: `1.5px solid ${!filter ? T.primary : T.border}`, backgroundColor: !filter ? T.primaryLight : "transparent", color: !filter ? T.primary : T.textMuted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-          Tous ({themes.length})
-        </button>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))" }}>
         {THEME_PIPELINE.map(status => {
-          const cfg   = THEME_STATUS_CFG[status];
+          const cfg = THEME_STATUS_CFG[status];
           const count = themes.filter(t => t.status === status).length;
           return (
-            <button key={status} onClick={() => setFilter(status)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 99, border: `1.5px solid ${filter === status ? cfg.color : T.border}`, backgroundColor: filter === status ? cfg.bg : "transparent", color: filter === status ? cfg.color : T.textMuted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: cfg.dot }} /> {cfg.label} ({count})
+            <button key={status} className="ds-stat" aria-pressed={filter === status} onClick={() => setFilter(filter === status ? null : status)}>
+              <span className="ds-stat__n">{count}</span>
+              <span className="ds-stat__l"><span style={{ width: 8, height: 8, borderRadius: "50%", background: cfg.dot }} />{cfg.label}</span>
             </button>
           );
         })}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11.5, color: T.textSubtle, marginRight: 2 }}>Source :</span>
-        <button onClick={() => setSource(null)} style={{ padding: "4px 10px", borderRadius: 99, border: `1px solid ${!sourceFilter ? T.primary : T.border}`, backgroundColor: !sourceFilter ? T.primaryLight : "transparent", color: !sourceFilter ? T.primary : T.textMuted, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-          Toutes
-        </button>
-        {FEEDBACK_SOURCES.map(s => {
-          const cfg   = SOURCE_CFG[s];
-          const count = themes.filter(t => themeSources(t).includes(s)).length;
-          if (count === 0) return null;
-          return (
-            <button key={s} onClick={() => setSource(sourceFilter === s ? null : s)} style={{ padding: "4px 10px", borderRadius: 99, border: `1px solid ${sourceFilter === s ? cfg.color : T.border}`, backgroundColor: sourceFilter === s ? cfg.bg : "transparent", color: sourceFilter === s ? cfg.color : T.textMuted, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-              {s} ({count})
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+
+      {sourceOptions.length > 1 && (
+        <div style={{ margin: "22px 0 4px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <Eyebrow>Source</Eyebrow>
+          <div className="ds-seg" role="group" aria-label="Filtrer par source">
+            <button aria-pressed={!sourceFilter} onClick={() => setSource(null)}>Toutes</button>
+            {sourceOptions.map(([s, n]) => <button key={s} aria-pressed={sourceFilter === s} onClick={() => setSource(sourceFilter === s ? null : s)}>{s} · {n}</button>)}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "repeat(auto-fill, minmax(330px, 1fr))", gap: 20, marginTop: 20, alignItems: "stretch" }}>
         {filtered.map(theme => (
           <ThemeCard key={theme.id} theme={theme} feedbackItems={feedbackInbox.filter(f => theme.feedbackIds.includes(f.id))} framework={framework} onOpenDetail={onOpenDetail} onPush={onPush} pushing={pushingId === theme.id} onGoToBacklogItem={onGoToBacklogItem} />
         ))}
       </div>
-      {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, fontSize: 13, color: T.textSubtle }}>Aucun thème pour ce filtre.</div>}
+      {filtered.length === 0 && (
+        <Card style={{ textAlign: "center", marginTop: 20, padding: 40 }}>
+          <div className="ds-card__title">Aucun thème pour ce filtre</div>
+          <div className="ds-card__sub">Retire un filtre pour revoir tous les thèmes.</div>
+        </Card>
+      )}
     </div>
   );
 }
 
-/* ─── THÈMES : panneau détail ──────────────────────────────────── */
+/* ─── THÈMES : tiroir de détail ───────────────────────────────── */
 function ThemeDetailPanel({ theme, feedbackItems, onUpdate, onUpdateFeedback, onDelete, onPush, pushing, onGoToBacklogItem, onClose }) {
   const [confirmDelete, setConfirm] = useState(false);
   const cfg = THEME_STATUS_CFG[theme.status] || THEME_STATUS_CFG["nouveau-signal"];
   const sources = [...new Set(feedbackItems.map(f => f.source || "Autre"))];
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", backgroundColor: "rgba(15,15,25,0.25)" }} onClick={onClose}>
-      <div style={{ width: 480, maxWidth: "92vw", height: "100%", backgroundColor: T.card, boxShadow: "-4px 0 24px rgba(0,0,0,.14)", overflow: "auto", padding: "22px 22px 60px", animation: "slideInRight 0.2s ease" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, backgroundColor: cfg.bg, color: cfg.color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, border: `1px solid ${cfg.border}` }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: cfg.dot }} /> {cfg.label}
-          </span>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textSubtle, display: "flex" }}><X size={18} /></button>
+    <div className="ds-drawer-bg" onClick={onClose}>
+      <aside className="ds-drawer" role="dialog" aria-label={theme.titre} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <Pill tone={THEME_TONE[theme.status]} dot>{cfg.label}</Pill>
+          <button className="ds-iconbtn" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
         </div>
 
-        <InlineEdit value={theme.titre} onChange={titre => onUpdate({ ...theme, titre })} style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 8 }} />
-        <InlineEdit value={theme.description} onChange={description => onUpdate({ ...theme, description })} multiline placeholder="Décrire le pain point…" style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.6, marginBottom: 16 }} />
+        <InlineEdit value={theme.titre} onChange={titre => onUpdate({ ...theme, titre })} style={{ fontSize: 26, fontWeight: 500, letterSpacing: "-0.025em", lineHeight: 1.2, color: "var(--ds-text)", marginBottom: 12 }} />
+        <InlineEdit value={theme.description} onChange={description => onUpdate({ ...theme, description })} multiline placeholder="Décrire le pain point…" style={{ fontSize: 15, color: "var(--ds-text-secondary)", lineHeight: 1.6, marginBottom: 18 }} />
 
-        {theme.tags?.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: sources.length ? 8 : 20 }}>
-            {theme.tags.map(tag => <span key={tag} style={{ fontSize: 10.5, fontWeight: 600, color: "#6366F1", backgroundColor: "#EEF2FF", borderRadius: 4, padding: "2px 7px", border: "1px solid #C7D2FE" }}>{tag}</span>)}
+        {(theme.tags?.length > 0 || sources.length > 0) && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 26 }}>
+            {(theme.tags || []).map(tag => <span key={tag} className="ds-tag">{tag}</span>)}
+            {sources.map(s => <Pill key={s}>{s}</Pill>)}
           </div>
         )}
 
-        {sources.length > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 20 }}>
-            {sources.map(s => {
-              const scfg = SOURCE_CFG[s] || SOURCE_CFG["Autre"];
-              return <span key={s} style={{ fontSize: 10.5, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "2px 7px", border: `1px solid ${scfg.border}` }}>{s}</span>;
-            })}
-          </div>
-        )}
-
-        <div style={{ fontSize: 11, fontWeight: 700, color: T.textSubtle, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 10 }}>
-          {feedbackItems.length} feedback{feedbackItems.length > 1 ? "s" : ""} regroupé{feedbackItems.length > 1 ? "s" : ""}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-          {feedbackItems.map(fb => {
-            const src  = fb.source || "Autre";
-            const scfg = SOURCE_CFG[src] || SOURCE_CFG["Autre"];
-            return (
-              <div key={fb.id} style={{ backgroundColor: "#FAFAFD", border: `1px solid ${T.borderSubtle}`, borderRadius: T.radiusSm, padding: "10px 12px" }}>
-                <select
-                  value={src}
-                  onChange={e => onUpdateFeedback?.(fb.id, { source: e.target.value })}
-                  title="Changer la source de ce feedback"
-                  style={{ display: "block", fontSize: 10, fontWeight: 600, color: scfg.color, backgroundColor: scfg.bg, borderRadius: 4, padding: "1px 6px", border: `1px solid ${scfg.border}`, marginBottom: 6, cursor: "pointer", fontFamily: "inherit", outline: "none" }}>
-                  {FEEDBACK_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <div style={{ fontSize: 12.5, color: T.text, lineHeight: 1.55, marginBottom: 6 }}>{fb.texte}</div>
-                {fb.painPoint && <div style={{ fontSize: 11.5, color: T.primary, fontWeight: 600 }}>→ {fb.painPoint}</div>}
-              </div>
-            );
-          })}
+        <Eyebrow style={{ marginBottom: 12 }}>{feedbackItems.length} feedback{feedbackItems.length > 1 ? "s" : ""} regroupé{feedbackItems.length > 1 ? "s" : ""}</Eyebrow>
+        <div style={{ display: "grid", gap: 12, marginBottom: 26 }}>
+          {feedbackItems.map(fb => (
+            <div key={fb.id} style={{ background: "var(--ds-surface-muted)", borderRadius: 20, padding: "16px 18px" }}>
+              <select className="ds-select" value={fb.source || "Autre"} onChange={e => onUpdateFeedback?.(fb.id, { source: e.target.value })} aria-label="Source de ce feedback" style={{ marginBottom: 10 }}>
+                {FEEDBACK_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <div style={{ fontSize: 14.5, color: "var(--ds-text)", lineHeight: 1.6 }}>{fb.texte}</div>
+              {fb.painPoint && <div style={{ fontSize: 13.5, color: "var(--ds-primary-strong)", fontWeight: 500, marginTop: 10 }}>Pain point · {fb.painPoint}</div>}
+            </div>
+          ))}
         </div>
 
         {theme.status !== "pousse-backlog" && (
-          <button onClick={() => onPush(theme)} disabled={pushing} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 0", border: "none", borderRadius: T.radius, background: pushing ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: pushing ? "not-allowed" : "pointer", fontFamily: "inherit", marginBottom: 12 }}>
-            {pushing ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Génération du ticket…</> : <><ArrowRight size={15} /> Pousser vers le backlog</>}
-          </button>
+          <Button size="lg" style={{ width: "100%", marginBottom: 12 }} onClick={() => onPush(theme)} disabled={pushing}>
+            {pushing ? <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Génération du ticket…</> : <><ArrowRight size={18} /> Pousser vers le backlog</>}
+          </Button>
         )}
         {theme.status === "pousse-backlog" && theme.backlogItemIds?.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-            {theme.backlogItemIds.map(id => (
-              <button key={id} onClick={() => onGoToBacklogItem(id)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 0", border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, background: T.primaryLight, color: T.primary, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                Voir #{toRef(id)} dans le Backlog <ArrowRight size={13} />
-              </button>
-            ))}
+          <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+            {theme.backlogItemIds.map(id => <Button key={id} variant="secondary" onClick={() => onGoToBacklogItem(id)}>Voir #{toRef(id)} dans le Backlog <ArrowRight size={16} /></Button>)}
           </div>
         )}
 
-        <div style={{ borderTop: `1px solid ${T.borderSubtle}`, paddingTop: 14 }}>
+        <div style={{ borderTop: "1px solid var(--ds-border)", marginTop: 20, paddingTop: 18 }}>
           {confirmDelete ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12.5, color: T.danger, fontWeight: 600, flex: 1 }}>Supprimer ce thème ? Les feedbacks resteront dans l'inbox, non rattachés.</span>
-              <button onClick={() => onDelete(theme.id)} style={{ fontSize: 12, fontWeight: 700, color: "#fff", backgroundColor: T.danger, border: "none", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>Oui</button>
-              <button onClick={() => setConfirm(false)} style={{ fontSize: 12, color: T.textMuted, backgroundColor: "#F3F4F6", border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}>Non</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 14, color: "var(--ds-danger-text)", flex: 1, minWidth: 200 }}>Supprimer ce thème ? Les feedbacks resteront dans l'inbox, non rattachés.</span>
+              <Button variant="secondary" onClick={() => setConfirm(false)} style={{ height: 38 }}>Annuler</Button>
+              <Button onClick={() => onDelete(theme.id)} style={{ height: 38, background: "var(--ds-danger)", boxShadow: "none" }}>Supprimer</Button>
             </div>
           ) : (
-            <button onClick={() => setConfirm(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: T.textSubtle, fontSize: 12.5, fontFamily: "inherit", padding: 0 }}>
-              <Trash2 size={13} /> Supprimer ce thème
-            </button>
+            <Button variant="ghost" onClick={() => setConfirm(true)} style={{ color: "var(--ds-danger-text)", paddingLeft: 0 }}><Trash2 size={16} /> Supprimer ce thème</Button>
           )}
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
 
 /* ─── PAGE: THÈMES ────────────────────────────────────────────── */
-function PageThemes({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, onSetBacklog, onGoToBacklogItem }) {
-  const isMobile = useIsMobile();
-  const [view, setView]           = useState("cartes");
+function PageThemes({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, onSetBacklog, onGoToBacklogItem, onNavigate }) {
+  const isMobile = useIsMobile(900);
+  const [view, setView]           = useState("Cartes");
   const [detailId, setDetailId]   = useState(null);
   const [pushingId, setPushingId] = useState(null);
   const [pushError, setPushError] = useState("");
@@ -2160,9 +1857,7 @@ function PageThemes({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, o
   };
 
   const detailTheme = detailId ? themes.find(t => t.id === detailId) : null;
-
   const handleUpdate = (updated) => onSetThemes(themes.map(t => t.id === updated.id ? updated : t));
-
   const handleUpdateFeedback = (fbId, patch) => onSetInbox(feedbackInbox.map(f => f.id === fbId ? { ...f, ...patch } : f));
 
   const handleDelete = (id) => {
@@ -2186,75 +1881,58 @@ function PageThemes({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, o
   };
 
   return (
-    <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "16px 12px 24px" : "20px 24px 28px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
-        <div>
-          <h1 style={{ fontSize: 19, fontWeight: 800, color: T.text, margin: "0 0 3px", letterSpacing: "-0.02em" }}>Thèmes</h1>
-          <p style={{ fontSize: 12.5, color: T.textMuted, margin: 0 }}>Tous les feedbacks reçus, regroupés par pain point.</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 11.5, color: T.textSubtle }}>Framework :</span>
-            {["MoSCoW", "RICE"].map(fw => (
-              <button key={fw} onClick={() => setFramework(fw)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${framework === fw ? T.primary : T.border}`, backgroundColor: framework === fw ? T.primaryLight : "transparent", color: framework === fw ? T.primary : T.textMuted, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{fw}</button>
-            ))}
+    <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ maxWidth: 1320, margin: "0 auto", padding: `${isMobile ? 24 : 40}px ${isMobile ? 20 : 40}px 56px` }}>
+        <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 28 }}>
+          <div>
+            <Eyebrow>{themes.length} thème{themes.length > 1 ? "s" : ""} · {feedbackInbox.length} feedback{feedbackInbox.length > 1 ? "s" : ""}</Eyebrow>
+            <h1 style={{ fontSize: isMobile ? 30 : 40, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1.1, color: "var(--ds-text)", margin: "6px 0 8px" }}>Thèmes</h1>
+            <p style={{ fontSize: 15.5, color: "var(--ds-text-secondary)", maxWidth: 520, lineHeight: 1.5 }}>Tous les feedbacks reçus, regroupés par pain point.</p>
           </div>
-          <div style={{ display: "flex", backgroundColor: "#F0F0F8", borderRadius: 99, padding: 3 }}>
-            {[{ v: "cartes", label: "Cartes", Icon: Layout }, { v: "kanban", label: "Kanban", Icon: Layers }].map(({ v, label, Icon }) => (
-              <button key={v} onClick={() => setView(v)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 99, border: "none", fontSize: 12, fontWeight: view === v ? 600 : 400, color: view === v ? T.primary : T.textMuted, backgroundColor: view === v ? "#fff" : "transparent", boxShadow: view === v ? "0 1px 4px rgba(0,0,0,.09)" : "none", cursor: "pointer", fontFamily: "inherit" }}>
-                <Icon size={13} /> {label}
-              </button>
-            ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <Segmented label="Framework de priorisation" options={["MoSCoW", "RICE"]} value={framework} onChange={setFramework} />
+            <Segmented label="Vue" options={["Cartes", "Kanban"]} value={view} onChange={setView} />
+            <Button variant="secondary" onClick={handleExportReport} disabled={themes.length === 0 || exportingReport} title="Générer un PowerPoint partageable avec la direction (synthèse + graphiques)">
+              {exportingReport ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={16} />}
+              {exportingReport ? "Génération…" : "Exporter en PowerPoint"}
+            </Button>
           </div>
-          <button
-            onClick={handleExportReport}
-            disabled={themes.length === 0 || exportingReport}
-            title="Générer un PowerPoint partageable avec la direction (synthèse + graphiques)"
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 13px", backgroundColor: themes.length === 0 ? "#F3F4F6" : T.primaryLight, color: themes.length === 0 ? T.textSubtle : T.primary, border: `1px solid ${themes.length === 0 ? T.border : T.primaryMid + "55"}`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: themes.length === 0 || exportingReport ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
-            {exportingReport ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Download size={13} />}
-            {exportingReport ? "Génération…" : "Exporter en PowerPoint"}
-          </button>
-        </div>
+        </header>
+
+        {pushError && (
+          <div role="alert" style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 20, padding: "12px 16px", borderRadius: 14, background: "var(--ds-danger-bg)", color: "var(--ds-danger-text)", fontSize: 14 }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} /> {pushError}
+          </div>
+        )}
+
+        {themes.length === 0 ? (
+          <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "56px 24px", gap: 8 }}>
+            <span style={{ width: 64, height: 64, borderRadius: 20, background: "var(--ds-primary-soft)", color: "var(--ds-primary-strong)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}><BookOpen size={28} /></span>
+            <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.02em" }}>Aucun thème pour l'instant</div>
+            <p className="ds-card__sub" style={{ maxWidth: 420 }}>Analyse un premier feedback : il crée ta première thématique, que tu pourras ensuite pousser au backlog.</p>
+            <Button size="lg" onClick={() => onNavigate?.("analyser")} style={{ marginTop: 12 }}><Sparkles size={18} /> Analyser un feedback</Button>
+          </Card>
+        ) : view === "Cartes" ? (
+          <ThemeGroupedView themes={themes} feedbackInbox={feedbackInbox} framework={framework} onOpenDetail={t => setDetailId(t.id)} onPush={handlePush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} />
+        ) : (
+          <ThemeKanbanBoard themes={themes} feedbackInbox={feedbackInbox} framework={framework} onThemesChange={onSetThemes} onOpenDetail={t => setDetailId(t.id)} onPush={handlePush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} />
+        )}
+
+        {detailTheme && (
+          <ThemeDetailPanel
+            theme={detailTheme}
+            feedbackItems={feedbackInbox.filter(f => detailTheme.feedbackIds.includes(f.id))}
+            onUpdate={handleUpdate} onUpdateFeedback={handleUpdateFeedback} onDelete={handleDelete}
+            onPush={handlePush} pushing={pushingId === detailTheme.id} onGoToBacklogItem={onGoToBacklogItem}
+            onClose={() => setDetailId(null)} />
+        )}
       </div>
-
-      {pushError && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.dangerLight, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 14 }}>
-          <AlertCircle size={14} color={T.danger} style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: T.danger }}>{pushError}</span>
-        </div>
-      )}
-
-      {themes.length === 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: T.textSubtle, padding: "60px 0" }}>
-          <BookOpen size={32} color={T.textSubtle} style={{ opacity: 0.4 }} />
-          <p style={{ fontSize: 14, margin: 0 }}>Aucun thème pour l'instant.</p>
-          <p style={{ fontSize: 13, color: T.textSubtle, margin: 0 }}>Envoie un feedback depuis l'onglet Analyser pour créer ta première thématique.</p>
-        </div>
-      ) : view === "cartes" ? (
-        <ThemeGroupedView themes={themes} feedbackInbox={feedbackInbox} framework={framework} onOpenDetail={t => setDetailId(t.id)} onPush={handlePush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} />
-      ) : (
-        <ThemeKanbanBoard themes={themes} feedbackInbox={feedbackInbox} framework={framework} onThemesChange={onSetThemes} onOpenDetail={t => setDetailId(t.id)} onPush={handlePush} pushingId={pushingId} onGoToBacklogItem={onGoToBacklogItem} isMobile={isMobile} />
-      )}
-
-      {detailTheme && (
-        <ThemeDetailPanel
-          theme={detailTheme}
-          feedbackItems={feedbackInbox.filter(f => detailTheme.feedbackIds.includes(f.id))}
-          onUpdate={handleUpdate}
-          onUpdateFeedback={handleUpdateFeedback}
-          onDelete={handleDelete}
-          onPush={handlePush}
-          pushing={pushingId === detailTheme.id}
-          onGoToBacklogItem={onGoToBacklogItem}
-          onClose={() => setDetailId(null)}
-        />
-      )}
     </div>
   );
 }
 
 /* ─── PAGE: ANALYSER ─────────────────────────────────────────── */
-function PageAnalyser({ themes, feedbackInbox, onSetThemes, onSetInbox, onComplete, onLoadDemo }) {
+function PageAnalyser({ themes, feedbackInbox, backlog, onSetThemes, onSetInbox, onComplete, onLoadDemo, onNavigate }) {
   const [feedback, setFeedback] = useState("");
   const [source, setSource]     = useState(FEEDBACK_SOURCES[0]);
   const [loading, setLoading]   = useState(false);
@@ -2316,87 +1994,17 @@ function PageAnalyser({ themes, feedbackInbox, onSetThemes, onSetInbox, onComple
   };
 
   return (
-    <div style={{ flex: 1, overflow: "auto" }}>
-      <div style={{
-        background: T.gradientHero, padding: "40px 28px 36px",
-        position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", width: 260, height: 260, borderRadius: "50%", background: "rgba(92,95,212,0.06)", top: -80, right: 60, pointerEvents: "none", animation: "floatOrb 6s ease-in-out infinite" }} />
-        <div style={{ position: "absolute", width: 160, height: 160, borderRadius: "50%", background: "rgba(139,92,246,0.07)", bottom: -50, right: 30, pointerEvents: "none", animation: "floatOrb 8s ease-in-out infinite 1.5s" }} />
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto" }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: T.text, margin: "0 0 6px", letterSpacing: "-0.04em", animation: "fadeInUp 0.4s ease both", lineHeight: 1.2 }}>
-            Bonjour, Ernestine.
-          </h1>
-          <p style={{ fontSize: 13.5, color: T.textMuted, margin: "0 0 22px", fontWeight: 400, animation: "fadeInUp 0.45s ease 0.05s both", lineHeight: 1.6 }}>
-            Colle un feedback brut — il rejoint automatiquement sa thématique.
-          </p>
-
-          <div style={{ animation: "fadeInUp 0.5s ease 0.1s both" }}>
-            <textarea value={feedback} onChange={e => setFeedback(e.target.value)}
-              placeholder={`Ex : "Marc m'a dit en réunion que son équipe perd 2h par jour à ressaisir les données de ventes dans Excel…"`}
-              style={{ width: "100%", minHeight: 130, border: `1.5px solid rgba(92,95,212,0.18)`, borderRadius: T.radius, padding: "14px 16px", fontSize: 13.5, color: "#374151", lineHeight: 1.7, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", backgroundColor: "rgba(255,255,255,0.85)", outline: "none", transition: "border-color 0.15s, box-shadow 0.15s", boxShadow: "0 2px 12px rgba(92,95,212,0.08)" }}
-              onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = `0 0 0 3px rgba(92,95,212,0.12)`; e.target.style.backgroundColor = "#fff"; }}
-              onBlur={e => { e.target.style.borderColor = "rgba(92,95,212,0.18)"; e.target.style.boxShadow = "0 2px 12px rgba(92,95,212,0.08)"; e.target.style.backgroundColor = "rgba(255,255,255,0.85)"; }} />
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4, marginBottom: 14 }}>
-              {charCount > 0 && <span style={{ fontSize: 11.5, color: charCount < 60 ? "#F59E0B" : T.textSubtle }}>{charCount} caractères</span>}
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-              <span style={{ fontSize: 11.5, color: T.textSubtle, marginRight: 2 }}>Source :</span>
-              {FEEDBACK_SOURCES.map(s => {
-                const cfg = SOURCE_CFG[s];
-                const active = source === s;
-                return (
-                  <button key={s} onClick={() => setSource(s)} style={{ padding: "4px 10px", borderRadius: 99, border: `1px solid ${active ? cfg.color : T.border}`, backgroundColor: active ? cfg.bg : "transparent", color: active ? cfg.color : T.textMuted, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-
-            {error && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.dangerLight, border: `1px solid ${T.dangerBorder}`, borderRadius: T.radiusSm, padding: "10px 14px", marginBottom: 14 }}>
-                <AlertCircle size={14} color={T.danger} style={{ flexShrink: 0 }} />
-                <span style={{ fontSize: 13, color: T.danger }}>{error}</span>
-              </div>
-            )}
-
-            <button onClick={handleAnalyze} disabled={loading || feedback.trim().length < 10}
-              style={{ width: "100%", padding: "13px 0", border: "none", borderRadius: T.radius, background: loading || feedback.trim().length < 10 ? "#C7C8F5" : T.gradient, color: "#fff", fontSize: 14.5, fontWeight: 700, cursor: loading || feedback.trim().length < 10 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading || feedback.trim().length < 10 ? "none" : T.shadowPrimary, fontFamily: "inherit", letterSpacing: "-0.01em", transition: "opacity 0.15s, transform 0.15s" }}
-              onMouseEnter={e => { if (!loading && feedback.trim().length >= 10) { e.currentTarget.style.opacity = "0.92"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
-              onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}>
-              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Analyse en cours…</> : <><Sparkles size={16} /> Identifier le thème</>}
-            </button>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", animation: "fadeInUp 0.55s ease 0.15s both" }}>
-            {[
-              { icon: Zap,        label: "Détection IA",          color: T.primary,  bg: "rgba(92,95,212,0.1)" },
-              { icon: Layers,     label: "Regroupement par thème", color: "#7C3AED",  bg: "rgba(124,58,237,0.1)" },
-              { icon: Target,     label: "Pain points",           color: "#15803D",  bg: "rgba(21,128,61,0.1)" },
-              { icon: ArrowRight, label: "Backlog sur demande",   color: "#C2410C",  bg: "rgba(194,65,12,0.1)" },
-            ].map(({ icon: Icon, label, color, bg }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: bg, borderRadius: 20, padding: "4px 11px", cursor: "default" }}>
-                <Icon size={11} color={color} />
-                <span style={{ fontSize: 11, fontWeight: 600, color }}>{label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ textAlign: "center", marginTop: 14 }}>
-            <button onClick={onLoadDemo} style={{ fontSize: 12.5, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 500, textDecoration: "underline", opacity: 0.8 }}>
-              Explorer avec les données de démo →
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <AnalyserView
+      feedback={feedback} setFeedback={setFeedback} source={source} setSource={setSource} sources={FEEDBACK_SOURCES}
+      loading={loading} error={error} onAnalyze={handleAnalyze}
+      themes={themes} inbox={feedbackInbox} backlog={backlog} statusCfg={THEME_STATUS_CFG}
+      onNavigate={onNavigate} onLoadDemo={onLoadDemo} />
   );
 }
 
 /* ─── PAGE: BOARD GLOBAL ─────────────────────────────────────── */
-function PageGlobalBoard({ backlog, onSetBacklog, initialHighlight, onHighlightConsumed }) {
-  const isMobile = useIsMobile();
+function PageGlobalBoard({ backlog, onSetBacklog, initialHighlight, onHighlightConsumed, onNavigate }) {
+  const isMobile = useIsMobile(900);
   const [highlightedId, setHighId] = useState(null);
   const [activeFilter, setFilter]  = useState(null);
   const [treeOpen, setTreeOpen]    = useState(false);
@@ -2421,251 +2029,256 @@ function PageGlobalBoard({ backlog, onSetBacklog, initialHighlight, onHighlightC
 
   const items = getKanbanItems(backlog, activeFilter);
 
+  if (items.length === 0) {
+    return (
+      <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <Card style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "56px 40px", gap: 8, maxWidth: 520 }}>
+          <span style={{ width: 64, height: 64, borderRadius: 20, background: "var(--ds-primary-soft)", color: "var(--ds-primary-strong)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}><Layers size={28} /></span>
+          {backlog.length === 0 ? (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.02em" }}>Ton backlog est vide</div>
+              <p className="ds-card__sub">Pousse un thème vers le backlog pour générer tes premiers Epics, Features et User Stories.</p>
+              <Button size="lg" onClick={() => onNavigate?.("themes")} style={{ marginTop: 12 }}>Aller aux Thèmes <ArrowRight size={18} /></Button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.02em" }}>{activeFilter?.label || "Ce filtre"} n'a pas encore de ticket</div>
+              <p className="ds-card__sub">La racine existe, mais aucune User Story, aucun Bug ni Spike n'est rattaché.</p>
+              <Button size="lg" variant="secondary" onClick={() => setFilter(null)} style={{ marginTop: 12 }}><X size={16} /> Voir tout le backlog ({backlog.length})</Button>
+            </>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  const executable = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length;
+
   return (
     <>
-      {items.length === 0
-        ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10, color: T.textSubtle }}>
-            <Layers size={32} color={T.textSubtle} style={{ opacity: 0.4 }} />
-            {backlog.length === 0 ? (
-              <>
-                <p style={{ fontSize: 14, margin: 0 }}>Ton backlog est vide.</p>
-                <p style={{ fontSize: 13, color: T.textSubtle }}>Lance une analyse dans l'onglet Analyser pour générer ton premier backlog.</p>
-              </>
-            ) : (
-              <>
-                <p style={{ fontSize: 14, margin: 0 }}>{activeFilter?.label || "Ce filtre"} n'a pas encore de ticket exécutable.</p>
-                <p style={{ fontSize: 13, color: T.textSubtle, margin: 0 }}>La racine existe mais n'a pas d'enfant User Story/Bug/Spike sous elle.</p>
-                <button onClick={() => setFilter(null)} style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", backgroundColor: T.primaryLight, color: T.primary, border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                  <X size={12} /> Voir tout le backlog ({backlog.length})
-                </button>
-              </>
-            )}
+      {isMobile && treeOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex" }} onClick={() => setTreeOpen(false)}>
+          <div style={{ width: "86%", maxWidth: 340, height: "100%", background: "#fff", boxShadow: "4px 0 24px rgba(27,21,53,.22)", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <HierarchyTree drawer backlog={backlog} activeFilter={activeFilter} onSelectFilter={f => { setFilter(f); setTreeOpen(false); }} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
           </div>
-        : <>
-            {/* Drawer hiérarchie sur mobile */}
-            {isMobile && treeOpen && (
-              <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex" }} onClick={() => setTreeOpen(false)}>
-                <div style={{ width: "82%", maxWidth: 300, height: "100%", backgroundColor: T.sidebar, boxShadow: "4px 0 24px rgba(0,0,0,.18)", overflowY: "auto", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
-                  <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={f => { setFilter(f); setTreeOpen(false); }} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
-                </div>
-                <div style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} />
-              </div>
-            )}
+          <div style={{ flex: 1, background: "rgba(27,21,53,.4)" }} />
+        </div>
+      )}
 
-            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-              {!isMobile && (
-                <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />
-              )}
-              <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "12px 12px 20px" : "20px 20px 20px 16px" }}>
-                {isMobile && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    <button onClick={() => setTreeOpen(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 13px", backgroundColor: T.primaryLight, color: T.primary, border: `1px solid ${T.primaryMid}55`, borderRadius: T.radiusSm, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                      <Layers size={13} /> Hiérarchie
-                    </button>
-                    {activeFilter && (
-                      <>
-                        <span style={{ fontSize: 12, color: T.primary, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeFilter.label}</span>
-                        <button onClick={() => setFilter(null)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", backgroundColor: "#F3F4F6", color: T.textMuted, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                          <X size={11} /> Tout
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-                <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={setFilter} filter={activeFilter} isMobile={isMobile} />
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+        {!isMobile && <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />}
+        <div style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+          <div style={{ padding: isMobile ? "24px 20px 48px" : "40px 40px 56px 32px" }}>
+            <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
+              <div>
+                <Eyebrow>{executable} ticket{executable > 1 ? "s" : ""} exécutable{executable > 1 ? "s" : ""}</Eyebrow>
+                <h1 style={{ fontSize: isMobile ? 30 : 40, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1.1, color: "var(--ds-text)", margin: "6px 0 8px" }}>Backlog</h1>
+                <p style={{ fontSize: 15.5, color: "var(--ds-text-secondary)", maxWidth: 520, lineHeight: 1.5 }}>Tes tickets par état de maturité, du cadrage au sprint.</p>
               </div>
-            </div>
-          </>
-      }
+              {isMobile && <Button variant="secondary" onClick={() => setTreeOpen(true)}><Layers size={16} /> Hiérarchie</Button>}
+            </header>
+            <KanbanBoard items={items} allItems={backlog} onItemsChange={handleKanbanChange} onDeleteItem={handleDeleteItem} highlightedId={highlightedId} onNavigate={handleNavigate} onSelectNode={setFilter} filter={activeFilter} onClearFilter={() => setFilter(null)} />
+          </div>
+        </div>
+      </div>
     </>
   );
 }
 
 /* ─── PAGE: RAPPORT ──────────────────────────────────────────── */
-function StatCard({ icon: Icon, label, value, sub, color = T.primary, bg = T.primaryLight }) {
-  return (
-    <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "20px", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-      <div style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}><Icon size={18} color={color} /></div>
-      <div style={{ fontSize: 28, fontWeight: 700, color: T.text, letterSpacing: "-0.03em", marginBottom: 4 }}>{value}</div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 12, color: T.textSubtle }}>{sub}</div>
-    </div>
-  );
-}
-
 function PageRapport() {
+  const isMobile = useIsMobile(900);
   const s = RAPPORT_STATS;
   const maxActivite = Math.max(...s.activite);
   const maxProjet   = Math.max(...Object.values(s.parProjet));
+  const totalPrio   = Object.values(s.parPrio).reduce((a, b) => a + b, 0);
+  const grid = (min) => ({ display: "grid", gap: 20, gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))` });
+  const Bar = ({ pct, color }) => <div className="ds-progress" style={{ height: 10 }}><span style={{ width: `${pct}%`, background: color || undefined }} /></div>;
+
   return (
-    <>
-      <div style={{ backgroundColor: T.sidebar, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #10B981 0%, #0D9488 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}><BarChart2 size={13} color="#fff" /></div>
-          Rapport d'activité
-        </h1>
-        <span style={{ fontSize: 11.5, color: T.textSubtle, backgroundColor: "#F3F4F6", borderRadius: 20, padding: "4px 12px", fontWeight: 500 }}>30 derniers jours</span>
-      </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "28px" }}>
+    <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ maxWidth: 1240, margin: "0 auto", padding: `${isMobile ? 24 : 40}px ${isMobile ? 20 : 40}px 56px` }}>
+        <PageHeader mobile={isMobile} eyebrow="30 derniers jours" title="Rapport d'activité" sub="Ce que FeedbackPO a produit pour toi, et le temps que ça te rend." />
         <DemoBanner />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
-          <StatCard icon={FileText} label="Feedbacks analysés" value={s.feedbacks} sub="ce mois-ci" color={T.primary} bg={T.primaryLight} />
-          <StatCard icon={Layers} label="Items générés" value={s.items} sub="Epics, Features, US, Bugs, Spikes" color="#15803D" bg="#F0FDF4" />
-          <StatCard icon={Repeat2} label="Taux de réutilisation" value={`${s.reutilisation}%`} sub="sans retouche majeure" color="#C2410C" bg="#FFF4ED" />
-          <StatCard icon={Timer} label="Heures économisées" value={`${s.tempsSave}h`} sub="estimation / semaine" color="#A16207" bg="#FEFCE8" />
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-          <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "20px", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 16 }}>Activité — 7 derniers jours</div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 100 }}>
+
+        <section className="ds-hero" style={{ padding: isMobile ? 22 : 32 }} aria-label="Synthèse">
+          <div style={{ fontSize: 12.5, fontWeight: 500, letterSpacing: ".08em", textTransform: "uppercase", color: "rgba(255,255,255,.72)" }}>Synthèse du mois</div>
+          <h2 style={{ fontSize: isMobile ? 26 : 40, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1.15, margin: "14px 0 24px", maxWidth: 760 }}>
+            <span style={{ opacity: .72 }}>{s.feedbacks} feedbacks analysés.</span> {s.items} items générés.
+          </h2>
+          <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))" }}>
+            {[[FileText, s.feedbacks, "Feedbacks analysés", "ce mois-ci"], [Layers, s.items, "Items générés", "Epics, Features, US, Bugs, Spikes"], [Timer, `${s.tempsSave} h`, "Heures économisées", "estimation par semaine"]].map(([Icon, v, l, sub]) => (
+              <div key={l} className="ds-glass" style={{ flexDirection: "column", alignItems: "flex-start", gap: 4, padding: "18px 20px" }}>
+                <span className="ds-glass__icon" style={{ marginBottom: 8 }}><Icon size={20} /></span>
+                <span style={{ fontSize: 38, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1 }}>{v}</span>
+                <span style={{ fontSize: 15, fontWeight: 600, marginTop: 6 }}>{l}</span>
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,.72)" }}>{sub}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div style={{ ...grid(isMobile ? 280 : 440), marginTop: 20 }}>
+          <Card>
+            <div className="ds-card__title">Activité</div>
+            <div className="ds-card__sub">Feedbacks analysés sur les 7 derniers jours.</div>
+            <div style={{ display: "flex", gap: isMobile ? 8 : 14, marginTop: 22, alignItems: "stretch", height: 190 }}>
               {s.activite.map((v, i) => (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                  <span style={{ fontSize: 10.5, color: T.textSubtle, fontWeight: 600 }}>{v}</span>
-                  <div style={{ width: "100%", borderRadius: "4px 4px 0 0", backgroundColor: i === 3 ? T.primary : T.primaryLight, height: `${(v / maxActivite) * 80}px` }} />
-                  <span style={{ fontSize: 10, color: T.textSubtle }}>{s.jours[i]}</span>
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ds-text)" }}>{v}</span>
+                  <div className="ds-bartrack" data-peak={v === maxActivite || undefined} style={{ flex: 1 }}><span style={{ height: `${(v / maxActivite) * 100}%` }} /></div>
+                  <span style={{ fontSize: 13, color: "var(--ds-text-secondary)" }}>{s.jours[i]}</span>
                 </div>
               ))}
             </div>
-          </div>
-          <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "20px", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 18 }}>Répartition par type</div>
-            {Object.entries(s.parType).map(([type, count]) => {
-              const cfg = TYPE_CFG[type] || TYPE_CFG["User Story"];
-              const pct = Math.round((count / s.items) * 100);
-              return (
-                <div key={type} style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: cfg.dot }} /><span style={{ fontSize: 12.5, color: T.text }}>{type}</span></div>
-                    <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>{count} ({pct}%)</span>
+          </Card>
+
+          <Card style={{ display: "flex", flexDirection: "column" }}>
+            <div className="ds-card__title">Taux de réutilisation</div>
+            <div className="ds-card__sub">Items repris sans retouche majeure.</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 28, flexWrap: "wrap", margin: "auto 0", paddingTop: 20 }}>
+              <Ring value={s.reutilisation} size={176} stroke={17} caption="sans retouche" />
+              <dl style={{ flex: 1, minWidth: 160, display: "grid", gap: 14, margin: 0 }}>
+                {[["Repris tels quels", Math.round(s.items * s.reutilisation / 100), "#5B3FC9"], ["Retouchés", s.items - Math.round(s.items * s.reutilisation / 100), "#D5CAF6"]].map(([l, n, c]) => (
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: "var(--ds-text-secondary)" }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: c }} />
+                    <dt style={{ flex: 1 }}>{l}</dt><dd style={{ margin: 0, fontWeight: 600, color: "var(--ds-text)" }}>{n}</dd>
                   </div>
-                  <div style={{ height: 6, backgroundColor: T.borderSubtle, borderRadius: 99 }}><div style={{ height: "100%", width: `${pct}%`, backgroundColor: cfg.dot, borderRadius: 99, opacity: 0.8 }} /></div>
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </dl>
+            </div>
+          </Card>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "20px", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 18 }}>Distribution MoSCoW</div>
-            {Object.entries(s.parPrio).map(([label, count]) => {
-              const pc = PRIO_CFG[label] || { bg: "#F9FAFB", color: "#6B7280" };
-              const pct = Math.round((count / Object.values(s.parPrio).reduce((a, b) => a + b, 0)) * 100);
-              return (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 9px", borderRadius: 5, backgroundColor: pc.bg, color: pc.color, minWidth: 96, textAlign: "center" }}>{label}</span>
-                  <div style={{ flex: 1, height: 6, backgroundColor: T.borderSubtle, borderRadius: 99 }}><div style={{ height: "100%", width: `${pct}%`, backgroundColor: pc.color, borderRadius: 99, opacity: 0.5 }} /></div>
-                  <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, minWidth: 24, textAlign: "right" }}>{count}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, padding: "20px", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 18 }}>Items par projet</div>
-            {Object.entries(s.parProjet).map(([projet, count], idx) => {
-              const pct    = Math.round((count / maxProjet) * 100);
-              const colors = [T.primary, "#15803D", "#C2410C"];
-              const bgs    = [T.primaryLight, "#F0FDF4", "#FFF4ED"];
-              return (
-                <div key={projet} style={{ marginBottom: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 12.5, color: T.text, fontWeight: 600 }}>{projet}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: colors[idx], backgroundColor: bgs[idx], borderRadius: 20, padding: "1px 9px" }}>{count} items</span>
+
+        <div style={{ ...grid(260), marginTop: 20 }}>
+          <Card>
+            <div className="ds-card__title" style={{ marginBottom: 20 }}>Répartition par type</div>
+            <div style={{ display: "grid", gap: 16 }}>
+              {Object.entries(s.parType).map(([type, count]) => {
+                const cfg = TYPE_CFG[type] || TYPE_CFG["User Story"];
+                const pct = Math.round((count / s.items) * 100);
+                return (
+                  <div key={type}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 14.5 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ds-text)" }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: cfg.dot }} />{type}</span>
+                      <span style={{ color: "var(--ds-text-secondary)" }}><b style={{ color: "var(--ds-text)", fontWeight: 600 }}>{count}</b> · {pct}%</span>
+                    </div>
+                    <Bar pct={pct} />
                   </div>
-                  <div style={{ height: 8, backgroundColor: T.borderSubtle, borderRadius: 99 }}><div style={{ height: "100%", width: `${pct}%`, backgroundColor: colors[idx], borderRadius: 99, opacity: 0.7 }} /></div>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="ds-card__title" style={{ marginBottom: 20 }}>Distribution MoSCoW</div>
+            <div style={{ display: "grid", gap: 16 }}>
+              {Object.entries(s.parPrio).map(([label, count]) => {
+                const pct = Math.round((count / totalPrio) * 100);
+                return (
+                  <div key={label}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <Pill tone={PRIO_TONE_BL[label]}>{label}</Pill>
+                      <span style={{ fontSize: 14.5, color: "var(--ds-text-secondary)" }}><b style={{ color: "var(--ds-text)", fontWeight: 600 }}>{count}</b> · {pct}%</span>
+                    </div>
+                    <Bar pct={pct} />
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="ds-card__title" style={{ marginBottom: 20 }}>Items par projet</div>
+            <div style={{ display: "grid", gap: 16 }}>
+              {Object.entries(s.parProjet).map(([projet, count]) => (
+                <div key={projet}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, fontSize: 14.5 }}>
+                    <span style={{ color: "var(--ds-text)", fontWeight: 500 }}>{projet}</span>
+                    <Pill tone="primary">{count} items</Pill>
+                  </div>
+                  <Bar pct={Math.round((count / maxProjet) * 100)} />
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          </Card>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
 /* ─── PAGE: PARAMÈTRES ───────────────────────────────────────── */
+function SettingsCard({ icon: Icon, title, sub, children }) {
+  return (
+    <Card style={{ padding: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+        <span className="ds-iconsq"><Icon size={20} /></span>
+        <div><div className="ds-card__title">{title}</div>{sub && <div className="ds-card__sub" style={{ marginTop: 2 }}>{sub}</div>}</div>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
 function PageParametres() {
-  const [model, setModel]       = useState("claude-sonnet-4-6");
+  const isMobile = useIsMobile(900);
+  const [model, setModel]       = useState("Sonnet · recommandé");
   const [defFw, setDefFw]       = useState("MoSCoW");
   const [velocity, setVelocity] = useState(4);
   const [saved, setSaved]       = useState(false);
+  const [notif, setNotif]       = useState(true);
   const save = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
-  const Toggle = ({ value, onChange }) => (
-    <div onClick={() => onChange(!value)} style={{ width: 38, height: 22, borderRadius: 99, backgroundColor: value ? T.primary : "#D1D5DB", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
-      <div style={{ position: "absolute", top: 3, left: value ? 19 : 3, width: 16, height: 16, borderRadius: "50%", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left 0.2s" }} />
-    </div>
-  );
-  const [notif, setNotif] = useState(true);
-  const Section = ({ icon: Icon, title, children }) => (
-    <div style={{ backgroundColor: T.card, borderRadius: T.radiusLg, border: `1px solid ${T.border}`, boxShadow: T.shadow, marginBottom: 16, overflow: "hidden" }}>
-      <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.borderSubtle}`, display: "flex", alignItems: "center", gap: 9 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: T.primaryLight, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={14} color={T.primary} /></div>
-        <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{title}</span>
-      </div>
-      <div style={{ padding: "18px 20px" }}>{children}</div>
-    </div>
-  );
+  const code = { background: "var(--ds-surface-muted)", padding: "2px 8px", borderRadius: 8, fontFamily: "var(--font-mono)", fontSize: 13 };
+  const projets = [["Kantara", 28], ["Nexio", 21], ["Pathline", 18]];
+
   return (
-    <>
-      <div style={{ backgroundColor: T.sidebar, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6B7280 0%, #374151 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}><Settings2 size={13} color="#fff" /></div>
-          Paramètres
-        </h1>
-        <button onClick={save} style={{ display: "flex", alignItems: "center", gap: 6, background: saved ? "linear-gradient(135deg,#16A34A,#15803D)" : T.gradient, color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: T.shadowPrimary, transition: "background 0.2s, opacity 0.15s" }}
-          onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
-          onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-          {saved ? <><CheckCheck size={13} /> Sauvegardé</> : "Sauvegarder"}
-        </button>
-      </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "28px", maxWidth: 680 }}>
-        <Section icon={Key} title="Modèle Claude">
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            {["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-8"].map(m => (
-              <button key={m} onClick={() => setModel(m)} style={{ padding: "6px 12px", borderRadius: 7, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", backgroundColor: model === m ? T.primary : "#F3F4F6", color: model === m ? "#fff" : T.textMuted, border: `1px solid ${model === m ? T.primary : T.border}` }}>
-                {m.includes("haiku") ? "Haiku" : m.includes("sonnet") ? "Sonnet (Recommandé)" : "Opus"}
-              </button>
-            ))}
-          </div>
-          <p style={{ fontSize: 12.5, color: T.textSubtle, margin: 0 }}>La clé API est configurée via la variable d'environnement <code style={{ backgroundColor: "#F3F4F6", padding: "1px 5px", borderRadius: 3, fontFamily: "monospace" }}>VITE_ANTHROPIC_API_KEY</code> dans le fichier <code style={{ backgroundColor: "#F3F4F6", padding: "1px 5px", borderRadius: 3, fontFamily: "monospace" }}>.env</code>.</p>
-        </Section>
-        <Section icon={Zap} title="Vélocité d'équipe">
-          <div style={{ marginBottom: 6, fontSize: 13.5, fontWeight: 500, color: T.text }}>1 Story Point = <strong>{velocity}h</strong> — 1 jour ≈ {Math.round(8/velocity)} SP</div>
-          <input type="range" min={1} max={8} step={0.5} value={velocity} onChange={e => setVelocity(Number(e.target.value))} style={{ width: "100%", accentColor: T.primary, marginBottom: 4 }} />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textSubtle }}>
-            <span>1h (rapide)</span><span>4h (standard)</span><span>8h (lent)</span>
-          </div>
-        </Section>
-        <Section icon={Sliders} title="Préférences">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div><div style={{ fontSize: 13.5, fontWeight: 500, color: T.text }}>Framework par défaut</div><div style={{ fontSize: 12, color: T.textSubtle }}>Utilisé à chaque analyse</div></div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {["MoSCoW", "RICE", "Valeur-Effort"].map(fw => (
-                <button key={fw} onClick={() => setDefFw(fw)} style={{ padding: "5px 11px", borderRadius: 7, fontSize: 12, cursor: "pointer", fontFamily: "inherit", backgroundColor: defFw === fw ? T.primary : "#F3F4F6", color: defFw === fw ? "#fff" : T.textMuted, border: `1px solid ${defFw === fw ? T.primary : T.border}` }}>{fw}</button>
-              ))}
+    <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: `${isMobile ? 24 : 40}px ${isMobile ? 20 : 40}px 56px` }}>
+        <PageHeader mobile={isMobile} eyebrow="Configuration" title="Paramètres" sub="Le modèle, la vélocité et tes préférences d'analyse."
+          right={<Button size="lg" onClick={save}>{saved ? <><CheckCheck size={18} /> Sauvegardé</> : "Sauvegarder"}</Button>} />
+
+        <div style={{ display: "grid", gap: 20 }}>
+          <SettingsCard icon={Key} title="Modèle Claude" sub="Plus le modèle est puissant, plus l'analyse est fine et lente.">
+            <Segmented label="Modèle Claude" options={["Haiku", "Sonnet · recommandé", "Opus"]} value={model} onChange={setModel} />
+            <p style={{ fontSize: 14, color: "var(--ds-text-secondary)", lineHeight: 1.6, marginTop: 16 }}>
+              La clé API se configure via la variable d'environnement <code style={code}>VITE_ANTHROPIC_API_KEY</code> dans le fichier <code style={code}>.env</code>.
+            </p>
+          </SettingsCard>
+
+          <SettingsCard icon={Zap} title="Vélocité d'équipe" sub="Sert à convertir les Story Points en temps.">
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+              <span style={{ fontSize: 40, fontWeight: 500, letterSpacing: "-0.03em", lineHeight: 1 }}>{velocity} h</span>
+              <span style={{ fontSize: 15, color: "var(--ds-text-secondary)" }}>par Story Point · 1 jour ≈ {Math.round(8 / velocity)} SP</span>
             </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div><div style={{ fontSize: 13.5, fontWeight: 500, color: T.text }}>Rapport hebdomadaire</div><div style={{ fontSize: 12, color: T.textSubtle }}>Email chaque lundi à 8h</div></div>
-            <Toggle value={notif} onChange={setNotif} />
-          </div>
-        </Section>
-        <Section icon={Users} title="Projets">
-          {["Kantara", "Nexio", "Pathline"].map((p, i) => {
-            const colors = [T.primary, "#15803D", "#C2410C"];
-            const counts = [28, 21, 18];
-            return (
-              <div key={p} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < 2 ? `1px solid ${T.borderSubtle}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: colors[i] }} />
-                  <span style={{ fontSize: 13.5, fontWeight: 500, color: T.text }}>{p}</span>
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: colors[i] }}>{counts[i]} items</span>
+            <input className="ds-range" type="range" min={1} max={8} step={0.5} value={velocity} onChange={e => setVelocity(Number(e.target.value))} aria-label="Heures par Story Point" />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--ds-text-secondary)", marginTop: 10 }}>
+              <span>1 h · rapide</span><span>4 h · standard</span><span>8 h · lent</span>
+            </div>
+          </SettingsCard>
+
+          <SettingsCard icon={Sliders} title="Préférences">
+            <div className="ds-row-set">
+              <div><div style={{ fontSize: 15.5, fontWeight: 500 }}>Framework par défaut</div><div className="ds-card__sub" style={{ marginTop: 2 }}>Utilisé à chaque analyse</div></div>
+              <Segmented label="Framework par défaut" options={["MoSCoW", "RICE", "Valeur-Effort"]} value={defFw} onChange={setDefFw} />
+            </div>
+            <div className="ds-row-set">
+              <div><div style={{ fontSize: 15.5, fontWeight: 500 }}>Rapport hebdomadaire</div><div className="ds-card__sub" style={{ marginTop: 2 }}>Email chaque lundi à 8 h</div></div>
+              <Toggle value={notif} onChange={setNotif} label="Rapport hebdomadaire" />
+            </div>
+          </SettingsCard>
+
+          <SettingsCard icon={Users} title="Projets">
+            {projets.map(([p, n]) => (
+              <div key={p} className="ds-row-set" style={{ padding: "14px 0" }}>
+                <span style={{ fontSize: 15.5, fontWeight: 500 }}>{p}</span>
+                <Pill tone="primary">{n} items</Pill>
               </div>
-            );
-          })}
-        </Section>
+            ))}
+          </SettingsCard>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -2681,116 +2294,14 @@ const TIPS_DU_JOUR = [
   "Écrire la démo avant le développement est la meilleure façon de détecter les ambiguïtés.",
 ];
 
-function TipsBanner() {
-  const [visible, setVisible] = useState(true);
-  const [idx] = useState(() => Math.floor(Math.random() * TIPS_DU_JOUR.length));
-  if (!visible) return null;
-  return (
-    <div style={{
-      backgroundColor: "#F0F0FF", borderBottom: `1px solid #DDDDF5`,
-      padding: "9px 20px", display: "flex", alignItems: "center", gap: 10,
-      flexShrink: 0,
-    }}>
-      <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
-      <span style={{ fontSize: 12.5, color: "#4338CA", flex: 1, lineHeight: 1.5 }}>
-        <strong style={{ fontWeight: 700 }}>Tip du jour · </strong>{TIPS_DU_JOUR[idx]}
-      </span>
-      <button onClick={() => setVisible(false)} style={{
-        background: "none", border: "none", cursor: "pointer", color: "#A5B4FC",
-        fontSize: 18, lineHeight: 1, padding: "0 4px", flexShrink: 0,
-        transition: "color 0.15s",
-      }}
-      onMouseEnter={e => e.currentTarget.style.color = "#6366F1"}
-      onMouseLeave={e => e.currentTarget.style.color = "#A5B4FC"}>×</button>
-    </div>
-  );
-}
-
 /* ─── APP HEADER ─────────────────────────────────────────────── */
 const NAV_ITEMS = [
   { id: "analyser",   label: "Analyser",   Icon: Sparkles  },
   { id: "themes",     label: "Thèmes",     Icon: BookOpen  },
   { id: "board",      label: "Backlog",    Icon: Layout    },
   { id: "rapport",    label: "Rapport",    Icon: BarChart2 },
-  { id: "settings",   label: "Paramètres", Icon: Settings2 },
+  { id: "settings",   label: "Paramètres", Icon: Settings2, config: true },
 ];
-
-function AppHeader({ activeNav, setActiveNav, backlog, themes }) {
-  const isMobile = useIsMobile();
-  const boardCount = backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length;
-  const themesCount = themes.filter(t => t.status !== "pousse-backlog").length;
-
-  return (
-    <header style={{
-      height: 52, backgroundColor: "#FFFFFF", borderBottom: `1px solid ${T.border}`,
-      display: "flex", alignItems: "center", padding: isMobile ? "0 10px" : "0 20px",
-      gap: isMobile ? 8 : 16, flexShrink: 0, zIndex: 100,
-      boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
-    }}>
-      {/* Logo */}
-      <div onClick={() => setActiveNav("analyser")} style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, cursor: "pointer", userSelect: "none" }}
-        title="Analyser un feedback">
-        <img src={logoSrc} alt="FeedbackPO" style={{ width: 30, height: 30, borderRadius: 7, flexShrink: 0, objectFit: "cover", boxShadow: "0 2px 8px rgba(92,95,212,.25)" }} />
-        {!isMobile && <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: "-0.03em" }}>FeedbackPO</div>}
-      </div>
-
-      {/* Nav pills — scrollable on mobile, icons only */}
-      <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", display: "flex", justifyContent: isMobile ? "flex-start" : "center", scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 2,
-          backgroundColor: "#F0F0F8", borderRadius: 99, padding: "4px", flexShrink: 0,
-        }}>
-          {NAV_ITEMS.map(({ id, label, Icon }) => {
-            const active = activeNav === id;
-            const badge = id === "board" ? boardCount : id === "themes" ? themesCount : 0;
-            return (
-              <button key={id} onClick={() => setActiveNav(id)} style={{
-                display: "flex", alignItems: "center", gap: isMobile ? 0 : 6,
-                padding: isMobile ? "7px 11px" : "6px 14px", borderRadius: 99, border: "none",
-                cursor: "pointer", fontFamily: "inherit", position: "relative",
-                fontSize: 12.5, fontWeight: active ? 600 : 400,
-                color: active ? T.primary : T.textMuted,
-                backgroundColor: active ? "#FFFFFF" : "transparent",
-                boxShadow: active ? "0 1px 4px rgba(0,0,0,.09), 0 0 0 0.5px rgba(0,0,0,0.03)" : "none",
-                transition: "all 0.18s ease", whiteSpace: "nowrap",
-              }}
-              onMouseEnter={e => { if (!active) { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.55)"; e.currentTarget.style.color = T.text; }}}
-              onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = T.textMuted; }}}>
-                <Icon size={14} strokeWidth={active ? 2.2 : 1.8} />
-                {!isMobile && label}
-                {badge > 0 && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, lineHeight: 1,
-                    color: active ? T.primary : "#9CA3AF",
-                    backgroundColor: active ? T.primaryLight : "#E0E0EC",
-                    borderRadius: 99, padding: "1px 5px",
-                    ...(isMobile ? { position: "absolute", top: 2, right: 2 } : {}),
-                  }}>{badge}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Avatar */}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: "50%",
-          background: T.gradient, display: "flex", alignItems: "center", justifyContent: "center",
-          color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
-          boxShadow: "0 2px 8px rgba(92,95,212,.32)",
-          transition: "transform 0.15s ease, box-shadow 0.15s ease",
-        }}
-        title="Ernestine · Product Owner"
-        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(92,95,212,.45)"; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(92,95,212,.32)"; }}>
-          E
-        </div>
-      </div>
-    </header>
-  );
-}
 
 /* ─── APP ────────────────────────────────────────────────────── */
 export default function App() {
@@ -2799,6 +2310,7 @@ export default function App() {
   const [feedbackInbox, setInboxRaw]  = useState(loadInbox);
   const [themes, setThemesRaw]        = useState(loadThemes);
   const [pendingHighlight, setPendingHighlight] = useState(null);
+  const [tip] = useState(() => TIPS_DU_JOUR[Math.floor(Math.random() * TIPS_DU_JOUR.length)]);
 
   const setBacklog        = (next) => { setBacklogRaw(next); saveBacklog(next); };
   const setFeedbackInbox  = (next) => { setInboxRaw(next); saveInbox(next); };
@@ -2818,17 +2330,16 @@ export default function App() {
   }, []);
 
   const PAGES = {
-    analyser:   <PageAnalyser themes={themes} feedbackInbox={feedbackInbox} onSetThemes={setThemes} onSetInbox={setFeedbackInbox} onComplete={goToThemes} onLoadDemo={loadDemoData} />,
-    themes:     <PageThemes themes={themes} feedbackInbox={feedbackInbox} backlog={backlog} onSetThemes={setThemes} onSetInbox={setFeedbackInbox} onSetBacklog={setBacklog} onGoToBacklogItem={goToBacklogItem} />,
-    board:      <PageGlobalBoard backlog={backlog} onSetBacklog={setBacklog} initialHighlight={pendingHighlight} onHighlightConsumed={() => setPendingHighlight(null)} />,
+    analyser:   <PageAnalyser themes={themes} feedbackInbox={feedbackInbox} backlog={backlog} onNavigate={setActiveNav} onSetThemes={setThemes} onSetInbox={setFeedbackInbox} onComplete={goToThemes} onLoadDemo={loadDemoData} />,
+    themes:     <PageThemes themes={themes} feedbackInbox={feedbackInbox} backlog={backlog} onSetThemes={setThemes} onSetInbox={setFeedbackInbox} onSetBacklog={setBacklog} onGoToBacklogItem={goToBacklogItem} onNavigate={setActiveNav} />,
+    board:      <PageGlobalBoard backlog={backlog} onSetBacklog={setBacklog} initialHighlight={pendingHighlight} onHighlightConsumed={() => setPendingHighlight(null)} onNavigate={setActiveNav} />,
     rapport:    <PageRapport />,
     settings:   <PageParametres />,
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", backgroundColor: T.bg, fontFamily: "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" }}>
+    <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         @keyframes spin         { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @keyframes fadeIn       { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         @keyframes fadeInUp     { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
@@ -2842,12 +2353,10 @@ export default function App() {
         @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }
       `}</style>
 
-      <TipsBanner />
-      <AppHeader activeNav={activeNav} setActiveNav={setActiveNav} backlog={backlog} themes={themes} />
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <Shell items={NAV_ITEMS} active={activeNav} onNavigate={setActiveNav} tip={tip}
+        counts={{ board: backlog.filter(i => EXECUTABLE_TYPES.includes(i.type)).length, themes: themes.filter(t => t.status !== "pousse-backlog").length }}>
         {PAGES[activeNav]}
-      </div>
-    </div>
+      </Shell>
+    </>
   );
 }
