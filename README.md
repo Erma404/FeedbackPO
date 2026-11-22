@@ -4,6 +4,35 @@ Transforme des feedbacks bruts (utilisateurs, clients, stakeholders) en élémen
 
 Démo : https://feedback-po.vercel.app
 
+## Aperçu
+
+Les captures montrent les données de démonstration intégrées à l'app (bouton « Explorer avec la démo »), pas des données réelles.
+
+![Écran Analyser : briefing du jour, saisie d'un feedback, thèmes en cours](docs/screenshots/01-analyser.jpg)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/02-themes-cartes.jpg" alt="Thèmes en cartes, avec filtres par statut et par source"><br><sub><b>Thèmes</b> · regroupés par pain point, filtrables par statut et par source</sub></td>
+    <td width="50%"><img src="docs/screenshots/03-themes-kanban.jpg" alt="Thèmes en Kanban de maturation"><br><sub><b>Kanban de maturation</b> · du premier signal au thème poussé au backlog</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/04-theme-detail.jpg" alt="Détail d'un thème avec ses feedbacks regroupés"><br><sub><b>Détail d'un thème</b> · feedbacks sources et pain point</sub></td>
+    <td><img src="docs/screenshots/05-backlog.jpg" alt="Backlog en Kanban avec le sprint en cours"><br><sub><b>Backlog</b> · états de maturité, capacité du sprint, hiérarchie repliable</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/06-ticket-detail.jpg" alt="Détail d'un ticket : questions, valeur métier, contexte"><br><sub><b>Détail d'un ticket</b> · questions à clarifier, valeur métier, critères d'acceptation</sub></td>
+    <td><img src="docs/screenshots/07-rapport.jpg" alt="Rapport d'activité avec synthèse du mois"><br><sub><b>Rapport</b> · synthèse du mois (données fictives)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/08-rapport-graphiques.jpg" alt="Graphiques du rapport : activité, réutilisation, répartitions"><br><sub><b>Graphiques</b> · activité, réutilisation, répartitions</sub></td>
+    <td><img src="docs/screenshots/10-design-system.jpg" alt="Page de référence du design system Amethyst"><br><sub><b>Design system</b> · tokens, typographie, composants (page <code>/#/ds</code>)</sub></td>
+  </tr>
+</table>
+
+**Sur mobile** : la sidebar devient une barre d'onglets en bas.
+
+![Vues mobiles : Analyser, Thèmes, Backlog](docs/screenshots/09-mobile.jpg)
+
 ## Le problème
 
 Les feedbacks arrivent en vrac, mal formulés, parfois contradictoires. Les transformer en epics, features et user stories exploitables prend du temps et dépend beaucoup de la personne qui les lit.
