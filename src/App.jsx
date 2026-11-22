@@ -20,7 +20,7 @@ import {
   ArrowRight, RefreshCw, ChevronRight, BarChart2, Plus, ChevronDown,
   Timer, Repeat2, FileText, Key, Bell, Sliders,
   Layers, Target, X, Check,
-  GripVertical, AlertTriangle, Users, Link, Upload,
+  GripVertical, AlertTriangle, Users, Link, Upload, PanelLeftClose, PanelLeftOpen,
   Layout, Pencil, Copy, Bug, Lightbulb, Trash2,
 } from "lucide-react";
 
@@ -962,7 +962,7 @@ function KanbanBoard({ items, allItems, onItemsChange, onDeleteItem, highlighted
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {filter && <button className="ds-pill" data-tone="primary" onClick={onClearFilter} title="Retirer le filtre" style={{ height: 32, paddingRight: 8 }}>{filter.label} <X size={14} /></button>}
+          {filter && <button className="ds-pill ds-pill--clip" data-tone="primary" onClick={onClearFilter} title={`${filter.label} (cliquer pour retirer le filtre)`} style={{ height: 32, paddingRight: 8 }}><span>{filter.label}</span> <X size={14} style={{ flexShrink: 0 }} /></button>}
           {totalSP > 0 && <Pill tone="primary"><Zap size={13} /> {totalSP} SP au total</Pill>}
           <Pill>{items.length} ticket{items.length > 1 ? "s" : ""}</Pill>
         </div>
@@ -1097,8 +1097,20 @@ function DetailModal({ item, onUpdate, onClose }) {
   );
 }
 
+/* ─── HIERARCHY RAIL (arbre replié) ──────────────────────────── */
+function HierarchyRail({ count, filtered, onOpen }) {
+  return (
+    <button className="ds-treerail" onClick={onOpen} title="Afficher la hiérarchie" aria-label={`Afficher la hiérarchie (${count} tickets)${filtered ? ", filtre actif" : ""}`}>
+      <PanelLeftOpen size={19} />
+      <span className="ds-count ds-count--soft">{count}</span>
+      {filtered && <span className="ds-treerail__dot" aria-hidden />}
+      <span className="ds-treerail__label">Hiérarchie</span>
+    </button>
+  );
+}
+
 /* ─── HIERARCHY TREE ─────────────────────────────────────────── */
-function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, onAddItem, drawer = false }) {
+function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, onAddItem, drawer = false, onCollapse }) {
   const [expanded,  setExpanded]  = useState({ d1: true });
   const [addingTo,  setAddingTo]  = useState(null);
   const [detailItem,setDetailItem]= useState(null);
@@ -1119,7 +1131,10 @@ function HierarchyTree({ backlog, activeFilter, onSelectFilter, onUpdateItem, on
   return (
     <>
       <aside className={`ds-tree ${drawer ? "ds-tree--drawer" : ""}`} aria-label="Hiérarchie du backlog">
-        <Eyebrow style={{ padding: "2px 12px 12px" }}>Hiérarchie</Eyebrow>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px 8px 12px" }}>
+          <Eyebrow>Hiérarchie</Eyebrow>
+          {onCollapse && <button className="ds-mini" onClick={onCollapse} title="Réduire la hiérarchie" aria-label="Réduire la hiérarchie"><PanelLeftClose size={18} /></button>}
+        </div>
 
         <button className="ds-treeitem" aria-current={!activeFilter} onClick={() => onSelectFilter(null)} style={{ flex: "none", width: "100%" }}>
           <Layers size={17} />
@@ -2004,6 +2019,8 @@ function PageGlobalBoard({ backlog, onSetBacklog, initialHighlight, onHighlightC
   const [highlightedId, setHighId] = useState(null);
   const [activeFilter, setFilter]  = useState(null);
   const [treeOpen, setTreeOpen]    = useState(false);
+  const [treeCollapsed, setTreeCollapsed] = useState(() => { try { return localStorage.getItem("feedbackpo_tree_collapsed") !== "false"; } catch { return true; } });
+  const toggleTree = () => setTreeCollapsed(c => { const n = !c; try { localStorage.setItem("feedbackpo_tree_collapsed", String(n)); } catch {} return n; });
 
   const handleUpdate       = (updated) => onSetBacklog(backlog.map(i => i.id === updated.id ? updated : i));
   const handleAddItem      = (item)    => onSetBacklog([...backlog, item]);
@@ -2062,7 +2079,9 @@ function PageGlobalBoard({ backlog, onSetBacklog, initialHighlight, onHighlightC
       )}
 
       <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
-        {!isMobile && <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} />}
+        {!isMobile && (treeCollapsed
+          ? <HierarchyRail count={executable} filtered={!!activeFilter} onOpen={toggleTree} />
+          : <HierarchyTree backlog={backlog} activeFilter={activeFilter} onSelectFilter={setFilter} onUpdateItem={handleUpdate} onAddItem={handleAddItem} onCollapse={toggleTree} />)}
         <div style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
           <div style={{ padding: isMobile ? "24px 20px 48px" : "40px 40px 56px 32px" }}>
             <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
